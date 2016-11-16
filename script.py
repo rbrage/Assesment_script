@@ -2,7 +2,9 @@ from tempfile import NamedTemporaryFile
 from shutil import copyfile
 import csv, re, fnmatch, os, time, datetime
 
+staff = ['Kim', 'Tom', 'Reza', 'Mehdi', 'Johnny', 'Brage']
 log_fil = open("script_Log.log", "w")
+
 def log(msg):
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
@@ -20,33 +22,63 @@ def print_dir(end_sufix):
                 i +=1
     return file_list
 
+def select_staff():
+    x = 0
+    for i in staff:
+        print(x,': ',i)
+        x += 1
+    you = input('Type in your number:')
+    staff.pop(int(you))
+    log('Staff: '+str(staff))
+    global num_assesmentfolder
+    num_assesmentfolder = count_assesment_folders()
+    log('Number of folders: '+str(num_assesmentfolder))
+    global assesment_for_each_staff
+    assesment_for_each_staff = num_assesmentfolder / len(staff)
+    log('Number for each(float): '+str(assesment_for_each_staff))
+    assesment_for_each_staff = int(assesment_for_each_staff) if (assesment_for_each_staff-0.5<int(assesment_for_each_staff)) else int(assesment_for_each_staff) + 1
+    log('Number for each: '+str(assesment_for_each_staff))
+
+def count_assesment_folders():
+    number_of_assesments = 0
+    for dirname, dirnames, filenames in os.walk('.'):
+        for subdirname in dirnames:
+            if fnmatch.fnmatch(subdirname,'P*') or fnmatch.fnmatch(subdirname,'D*'):
+                number_of_assesments +=1
+    return number_of_assesments
+
 def create_feedbackfiles():
     log('Create_feedbackfile')
     file_list = print_dir(('.docx', '.doc'))
     log(str(file_list))
     feedback_file_path = file_list[int(input('Type in the number of the feedback file: '))]
-    print(feedback_file_path)
-
     path = os.getcwd()
     folder_name = os.path.dirname(path)
     log("Path: " + path)
     log("Folder name: " + folder_name)
     file = open("StudentID.txt", "w")
     log('Created StudentID')
-
+    i = -1
+    x = 0
     for dirname, dirnames, filenames in os.walk('.'):
         # print path to all subdirectories first.
         for subdirname in dirnames:
-            print(subdirname)
             if fnmatch.fnmatch(subdirname,'P*') or fnmatch.fnmatch(subdirname,'D*'):
                 log('subdirname: ' + subdirname)
                 studentID = re.findall(r'\d+', subdirname)
                 log('len(studentID):' + str(len(studentID)))
+                print(x,'%', assesment_for_each_staff, '=', x%assesment_for_each_staff)
+                if x % assesment_for_each_staff == 0:
+                    i += 1
+                if i >= len(staff): i = len(staff)-1
+                staff_name = staff[i]
+                x +=1
                 if len(studentID) == 1:
                     log('studentID:' + studentID[0])
-                    file.write(studentID[0] + '\n')
+                    file.write(studentID[0] + '\t' + staff_name + '\n')
                 copyfile(path + '/' + feedback_file_path, path + '/' + subdirname + '/' + subdirname + '.docx')
                 log('Made new file: ' + path + '/' + subdirname + '/' + subdirname + '.docx')
+
     file.close()
 
     print('\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
@@ -78,6 +110,8 @@ prog_to_run = input('What program/operation do you want to run? Type in the numb
                     '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
                     '\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
 prog_to_run = int(prog_to_run)
+select_staff()
+
 if prog_to_run == 1:
     create_feedbackfiles()
 elif prog_to_run == 2:

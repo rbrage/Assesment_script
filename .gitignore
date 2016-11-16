@@ -19,7 +19,7 @@
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
-#*.py[cod]
+*.py[cod]
 *$py.class
 
 # C extensions
@@ -135,7 +135,6 @@ $RECYCLE.BIN/
 
 .gitignore
 .idea/
-script.py
 Deltaker_251972_assignsubmission_file_/
 Deltaker_251973_assignsubmission_file_/
 FS1IIS071-CP1-2016.docx

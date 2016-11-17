@@ -1,14 +1,38 @@
 from tempfile import NamedTemporaryFile
 from shutil import copyfile
-import csv, re, fnmatch, os, time, datetime
+import zipfile, csv, re, fnmatch, os, time, datetime, random
 
-staff = ['Kim', 'Tom', 'Reza', 'Mehdi', 'Johnny', 'Brage']
+staff = ['Kim', 'Tom', 'Brage',  'Reza', 'Mehdi', 'Johnny']
+random.shuffle(staff)
+assesment_for_each_staff = []
+id_staff = []
+num_assesmentfolder = 0
 log_fil = open("script_Log.log", "w")
+
 
 def log(msg):
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-    log_fil.write(st+':\t'+ msg+ '\n')
+    log_fil.write(st + ':\t' + msg + '\n')
+
+def zipdir(path, ziph):
+    # ziph is zipfile handle
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            ziph.write(os.path.join(root, file))
+
+def make_zip():
+    print('creating archive')
+    for i in range(len(staff)):
+        zf = zipfile.ZipFile(staff[i] +'.zip', 'w', zipfile.ZIP_DEFLATED)
+        for j in range(len(id_staff[i])):
+            try:
+                zipdir(id_staff[i][j]+'/', zf)
+            finally:
+                print()
+        log('Created: '+staff[i] + '.zip')
+        zf.close()
+
 
 def print_dir(end_sufix):
     i = 0
@@ -17,35 +41,47 @@ def print_dir(end_sufix):
         # print path to all subdirectories first.1
         for docxname in filenames:
             if docxname.endswith(end_sufix):
-                print(i,': ' + docxname)
+                print(i, ': ' + docxname)
                 file_list.append(docxname)
-                i +=1
+                i += 1
     return file_list
+
+def distribute_number_of_exam():
+    number_of_staff = len(staff)
+    number_for_each_staff = (num_assesmentfolder / number_of_staff)
+    remaining_assesments = (num_assesmentfolder % number_of_staff)
+
+    for i in range(1, number_of_staff + 1):
+        print(i)
+        extra = 1 if i <= remaining_assesments else 0
+        assesment_for_each_staff.append(int(number_for_each_staff + extra))
+
+    log('Distribution: '+str(assesment_for_each_staff))
+    log('Sum of Distribution: '+str(sum(assesment_for_each_staff)))
 
 def select_staff():
     x = 0
     for i in staff:
-        print(x,': ',i)
+        print(x, ': ', i)
         x += 1
     you = input('Type in your number:')
     staff.pop(int(you))
-    log('Staff: '+str(staff))
+    log('Staff: ' + str(staff))
     global num_assesmentfolder
     num_assesmentfolder = count_assesment_folders()
-    log('Number of folders: '+str(num_assesmentfolder))
-    global assesment_for_each_staff
-    assesment_for_each_staff = num_assesmentfolder / len(staff)
-    log('Number for each(float): '+str(assesment_for_each_staff))
-    assesment_for_each_staff = int(assesment_for_each_staff) if (assesment_for_each_staff-0.5<int(assesment_for_each_staff)) else int(assesment_for_each_staff) + 1
-    log('Number for each: '+str(assesment_for_each_staff))
+    global id_staff
+    id_staff = [[] for i in range(len(staff))]
+    distribute_number_of_exam()
+
 
 def count_assesment_folders():
     number_of_assesments = 0
     for dirname, dirnames, filenames in os.walk('.'):
         for subdirname in dirnames:
-            if fnmatch.fnmatch(subdirname,'P*') or fnmatch.fnmatch(subdirname,'D*'):
-                number_of_assesments +=1
+            if fnmatch.fnmatch(subdirname, 'P*') or fnmatch.fnmatch(subdirname, 'D*'):
+                number_of_assesments += 1
     return number_of_assesments
+
 
 def create_feedbackfiles():
     log('Create_feedbackfile')
@@ -58,31 +94,36 @@ def create_feedbackfiles():
     log("Folder name: " + folder_name)
     file = open("StudentID.txt", "w")
     log('Created StudentID')
-    i = -1
+    i = 0
     x = 0
     for dirname, dirnames, filenames in os.walk('.'):
         # print path to all subdirectories first.
         for subdirname in dirnames:
-            if fnmatch.fnmatch(subdirname,'P*') or fnmatch.fnmatch(subdirname,'D*'):
+            if fnmatch.fnmatch(subdirname, 'P*') or fnmatch.fnmatch(subdirname, 'D*'):
                 log('subdirname: ' + subdirname)
                 studentID = re.findall(r'\d+', subdirname)
                 log('len(studentID):' + str(len(studentID)))
-                print(x,'%', assesment_for_each_staff, '=', x%assesment_for_each_staff)
-                if x % assesment_for_each_staff == 0:
+                if x >= assesment_for_each_staff[i]:
                     i += 1
-                if i >= len(staff): i = len(staff)-1
+                    x = 0
                 staff_name = staff[i]
-                x +=1
+                x += 1
                 if len(studentID) == 1:
                     log('studentID:' + studentID[0])
                     file.write(studentID[0] + '\t' + staff_name + '\n')
+                print(id_staff)
+                id_staff[i].append(subdirname)
                 copyfile(path + '/' + feedback_file_path, path + '/' + subdirname + '/' + subdirname + '.docx')
                 log('Made new file: ' + path + '/' + subdirname + '/' + subdirname + '.docx')
-
+    log('Folders to zip: '+ str(id_staff))
     file.close()
 
-    print('\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
-    log('\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
+    make_zip()
+
+    print(
+        '\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
+    log(
+        '\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
 
 
 def merge_csv_sheet():
@@ -106,9 +147,9 @@ def delete_student_exam():
 
 
 prog_to_run = input('What program/operation do you want to run? Type in the number:\n'
-                    '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
-                    '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
-                    '\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
+                    '\t1: Create feedback file in each folder, and collect the student ID in a list.\n')
+                    #'\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
+                    #'\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
 prog_to_run = int(prog_to_run)
 select_staff()
 
@@ -120,10 +161,6 @@ elif prog_to_run == 3:
     delete_student_exam()
 else:
     print('Type in one of the number to choose select a script!')
-
-
-
-
 
 '''
 #writer = csv.writer(open('Karakterer-IIS2016-Course Project IIS - Response Upload-26344.csv', 'w', delimiter=',', quotechar='"'))

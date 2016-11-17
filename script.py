@@ -2,7 +2,9 @@ from tempfile import NamedTemporaryFile
 from shutil import copyfile
 import zipfile, csv, re, fnmatch, os, time, datetime, random
 
+
 staff = ['Kim', 'Tom', 'Brage',  'Reza', 'Mehdi', 'Johnny']
+
 random.shuffle(staff)
 assesment_for_each_staff = []
 id_staff = []
@@ -60,12 +62,13 @@ def distribute_number_of_exam():
     log('Sum of Distribution: '+str(sum(assesment_for_each_staff)))
 
 def select_staff():
-    x = 0
+    x = 1
     for i in staff:
         print(x, ': ', i)
         x += 1
-    you = input('Type in your number:')
-    staff.pop(int(you))
+    you = input('Type in your number, or 0(zero) to skip:')
+    if you !=0:
+        staff.pop(int(you)-1)
     log('Staff: ' + str(staff))
     global num_assesmentfolder
     num_assesmentfolder = count_assesment_folders()

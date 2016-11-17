@@ -2,7 +2,7 @@ from tempfile import NamedTemporaryFile
 from shutil import copyfile
 import zipfile, csv, re, fnmatch, os, time, datetime, random
 
-
+# Change the names in here to the ones you have available.
 staff = ['Kim', 'Tom', 'Brage',  'Reza', 'Mehdi', 'Johnny']
 
 random.shuffle(staff)

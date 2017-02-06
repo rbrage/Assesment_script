@@ -3,7 +3,7 @@ from shutil import copyfile
 import zipfile, csv, re, fnmatch, os, time, datetime, random
 
 # Change the names in here to the ones you have available.
-staff = ['Kim', 'Tom', 'Brage',  'Reza', 'Mehdi', 'Johnny']
+staff = ['Kim', 'Tom', 'Brage',  'Reza', 'Johnny']
 
 random.shuffle(staff)
 assesment_for_each_staff = []

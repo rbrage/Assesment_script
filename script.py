@@ -1,7 +1,6 @@
-from tempfile import NamedTemporaryFile
 from shutil import copyfile
-from openpyxl import load_workbook
-import zipfile, csv, re, fnmatch, os, time, datetime, random
+from openpyxl import load_workbook, Workbook
+import zipfile, csv, re, fnmatch, os, time, datetime, random, statistics
 
 # Change the names in here to the ones you have available.
 staff = []
@@ -10,6 +9,7 @@ id_staff = []
 num_assesmentfolder = 0
 log_fil = open("script_Log.log", "w")
 distribution_grade = dict()
+grade_value = []
 
 def log(msg):
     ts = time.time()
@@ -23,14 +23,13 @@ def zipdir(path, ziph):
             ziph.write(os.path.join(root, file))
 
 def make_zip():
-    print('creating archive')
     for i in range(len(staff)):
         zf = zipfile.ZipFile(staff[i] +'.zip', 'w', zipfile.ZIP_DEFLATED)
         for j in range(len(id_staff[i])):
             try:
                 zipdir(id_staff[i][j]+'/', zf)
             finally:
-                print()
+                pass
         log('Created: '+staff[i] + '.zip')
         zf.close()
 
@@ -63,7 +62,7 @@ def distribute_number_of_exam():
 def select_staff():
     input_name = input('Type in names of who is going to assess. Use comma between if there is more than one:')
     global staff
-    staff = input_name.split(',')
+    staff = [x.strip() for x in input_name.split(',')]
     random.shuffle(staff)
     log('#{} - Staff: {}'.format(len(staff), str(staff)))
     global num_assesmentfolder
@@ -82,6 +81,23 @@ def count_assesment_folders():
     return number_of_assesments
 
 
+def create_sheet_header_info(wb):
+    ws = wb.create_sheet("Distribution", 0)
+    ws.cell(row=1, column=1, value='ID')
+    ws.cell(row=1, column=2, value='Teacher')
+    ws.cell(row=1, column=3, value='Start')
+    ws.cell(row=1, column=4, value='Finished')
+    ws.cell(row=1, column=5, value='Points')
+    ws.cell(row=1, column=6, value='Grade')
+    ws.cell(row=1, column=7, value='Comments')
+
+    for x in range(0,len(staff)):
+        ws.cell(row=x+3, column=10, value=staff[x])
+        ws.cell(row=x+3, column=11, value=assesment_for_each_staff[x])
+
+    return ws
+
+
 def create_feedbackfiles():
     log('Create_feedbackfile')
     file_list = print_dir(('.docx', '.doc'))
@@ -91,14 +107,16 @@ def create_feedbackfiles():
     folder_name = os.path.dirname(path)
     log("Path: " + path)
     log("Folder name: " + folder_name)
-    file = open("StudentID.txt", "w")
-    log('Created StudentID')
+    wb = Workbook()
+    ws = create_sheet_header_info(wb)
+    log('Created Headers to Distribution.xlsx')
     i = 0
     x = 0
+    z = 1
     for dirname, dirnames, filenames in os.walk('.'):
         # print path to all subdirectories first.
         for subdirname in dirnames:
-            if fnmatch.fnmatch(subdirname, '*_assign*'):# or fnmatch.fnmatch(subdirname, 'D*'):
+            if fnmatch.fnmatch(subdirname, '*_assign*'):
                 log('subdirname: ' + subdirname)
                 studentID = re.findall(r'\d+', subdirname)
                 log('len(studentID):' + str(len(studentID)))
@@ -111,37 +129,35 @@ def create_feedbackfiles():
                 staff_name = staff[i]
                 x += 1
                 if len(studentID) == 1:
+                    z += 1
                     log('studentID:' + studentID[0])
-                    file.write(studentID[0] + '\t' + staff_name + '\n')
+                    ws.cell(row=z, column=1, value=studentID[0])
+                    ws.cell(row=z, column=2, value=staff_name)
+                    wb.save('Distribution.xlsx')
                 id_staff[i].append(subdirname)
                 copyfile(path + '/' + feedback_file_path, path + '/' + subdirname + '/' + subdirname + '.docx')
                 log('Made new file: ' + path + '/' + subdirname + '/' + subdirname + '.docx')
+
+    log('Saved Distribution.xlsx')
     log('Folders to zip: '+ str(id_staff))
-    file.close()
 
     make_zip()
 
     print(
-        '\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
+        '\nProcess done!\nYou will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
     log(
-        '\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
+        'Process done! You will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
 
 
 def merge_csv_sheet():
-    file_list = print_dir(('.csv'))
-    print(file_list)
-    dist_csv_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
-    print(dist_csv_path)
-
-
-
-    # with open(dist_csv_path) as csv_file:
-    #     reader = csv.reader(csv_file, delimiter=',')
-    #     print(reader)
-    #     for row in reader:
-    #         print(row)
-    # grade_sheet_path = = file_list[int(input('Type in the number of the Grade sheet from moodle: '))]
-
+    read_xlsx_file()
+    log('Done read_xlsx_file')
+    read_csv_file()
+    log('Done read_csv_file')
+    print(
+        '\nProcess done!\nYou will find a NEW csv file ready to upload to moodle')
+    log(
+        'Process done! You will find a NEW csv file ready to upload to moodle')
 
 def delete_student_exam():
     for dirname, dirnames, filenames in os.walk('.'):
@@ -154,134 +170,77 @@ def delete_student_exam():
                     print('File: ' + docxname)
                     os.remove(dirname + '/' + docxname)
 
+def calculate_stats():
+    try:
+        stat_file = open('CP_statistics.txt', 'w')
+        stat_file.write('Mean:\t {} - Arithmetic mean (“average”) of data.\n'.format(statistics.mean(grade_value)))
+        stat_file.write('Median:\t {} - Median (middle value) of data.\n'.format(statistics.median(grade_value)))
+        stat_file.write('Median_low:\t {} - Low median of data.\n'.format(statistics.median_low(grade_value)))
+        stat_file.write('Median_high:\t {} - High median of data.\n'.format(statistics.median_low(grade_value)))
+        stat_file.write('Median_grouped:\t {} - Median, or 50th percentile, of grouped data.\n'.format(statistics.median_grouped(grade_value)))
+        stat_file.write('Population standard deviation:\t {} - Population standard deviation of data.\n'.format(statistics.pstdev(grade_value)))
+        stat_file.write('Population variance:\t {} - Population variance of data.\n'.format(statistics.pvariance(grade_value)))
+        stat_file.write('Standard deviation:\t {} - Sample standard deviation of data.\n'.format(statistics.stdev(grade_value)))
+        stat_file.write('Variance:\t {} - Sample variance of data.\n'.format(statistics.variance(grade_value)))
+        stat_file.close()
+        log('Done calculated stats')
+    except TypeError as msg:
+        log(msg)
+
 def read_xlsx_file():
+    log('read_xlsx_file')
     file_list = print_dir(('.xlsx'))
-    print(file_list)
-    dist_xlsx_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
-    print(dist_xlsx_path)
+    dist_xlsx_path = file_list[int(input('Type in the number of the Distribution sheet:'))]
     wb = load_workbook(filename=dist_xlsx_path, read_only=False)
-    print(wb.sheetnames)
-    ws = wb['Sheet1']
+    ws = wb['Distribution']
     for row in ws.rows:
-        if row[0].value == 'Assignment ID':
+        if row[0].value == 'ID':
             continue
         global distribution_grade
         distribution_grade[row[0].value] = []
         distribution_grade[row[0].value].append([row[4].value, row[5].value])
-    print(distribution_grade)
+        print(distribution_grade)
+        global grade_value
+        grade_value.append(row[4].value)
+    calculate_stats()
 
 def read_csv_file():
+    log('read_csv_file')
     file_list = print_dir(('.csv'))
-    print(file_list)
-    dist_csv_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
-    print(dist_csv_path)
+    dist_csv_path = file_list[int(input('Type in the number of the Grade sheet from Moodle sheet:'))]
 
     with open(dist_csv_path) as csv_file:
         reader = csv.DictReader(csv_file)
-        with open('names.csv', 'w') as csvfile:
-            fieldnames = ['ï»¿Identifier', 'Status', 'Grade', 'Scale', 'Grade can be changed',
+        with open('NEW-Greading-upload.csv', 'w') as csvfile:
+            fieldnames = ['\ufeffIdentifier', 'Status', 'Grade', 'Scale', 'Grade can be changed',
                           'Last modified (submission)',
                           'Last modified (grade)', 'Feedback comments']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-        for row in reader:
-            print()
-
+            writer = csv.DictWriter(csvfile, delimiter=',', fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerow({'ï»¿Identifier': row['ï»¿Identifier'], 'last_name': 'Beans'})
+            for row in reader:
+                p_id = int(re.findall(r'\d+', row['\ufeffIdentifier'])[0])
+                writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],
+                                 'Status': row['Status'],
+                                 'Grade': distribution_grade[p_id][0][1],
+                                 'Scale': row['Scale'],
+                                 'Grade can be changed': row['Grade can be changed'],
+                                 'Last modified (submission)': row['Last modified (submission)'],
+                                 'Last modified (grade)': row['Last modified (grade)'],
+                                 'Feedback comments': 'Score = '+distribution_grade[p_id][0][0]})
+prog_to_run = -1
+while prog_to_run != 0:
+    prog_to_run = int(input('What program/operation do you want to run? Type in the number, 0 to quit:\n'
+                        '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
+                        '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'))
+                        #'\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
 
+    if prog_to_run == 1:
+        select_staff()
+        create_feedbackfiles()
+    elif prog_to_run == 2:
+        merge_csv_sheet()
+    elif prog_to_run == 0:
+        exit(0)
+    else:
+        print('Type in one of the number to choose select a script!')
 
-
-prog_to_run = input('What program/operation do you want to run? Type in the number:\n'
-                    '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
-                    # '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
-                    '\t3: Read csv file.\n')
-                    '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n')
-                    #'\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
-
-prog_to_run = int(prog_to_run)
-
-
-if prog_to_run == 1:
-    select_staff()
-    create_feedbackfiles()
-elif prog_to_run == 2:
-    merge_csv_sheet()
-elif prog_to_run == 3:
-    read_csv_file()
-elif prog_to_run == 4:
-    delete_student_exam()
-else:
-    print('Type in one of the number to choose select a script!')
-
-'''
-#writer = csv.writer(open('Karakterer-IIS2016-Course Project IIS - Response Upload-26344.csv', 'w', delimiter=',', quotechar='"'))
-
-
-print('Dist_file done\n')
-
-with open('Karakterer-IIS2016-Course Project IIS - Response Upload-26344.csv') as csv_file:
-    spam_reader = csv.reader(csv_file, delimiter=',', quotechar='"')
-    for row1 in spam_reader:
-        print(row1)
-
-
-
-
-
-from shutil import copyfile
-import os
-import fnmatch
-import re
-
-log_fil = open("Log.txt", "w")
-def log(msg):
-    log_fil.write(msg+ '\n')
-
-path = os.getcwd()
-folder_name = os.path.dirname(path)
-log("Path: " + path)
-log("Folder name: " + folder_name)
-
-print('path: '+ path+'\n')
-print('-----------------------')
-log('-----------------------')
-file = open("StudentID.txt", "w")
-log('Created StudentID')
-docXname = ''
-for dirname, dirnames, filenames in os.walk('.'):
-    # print path to all subdirectories first.
-    for docxname in filenames:
-        log('docxname: '+docxname)
-        if fnmatch.fnmatch(docxname, 'FS*'):
-            docXname = docxname
-
-if docXname == '':
-    print('Error! No FS file in this folder!')
-    log('Error! No FS file in this folder!')
-    quit()
-
-for dirname, dirnames, filenames in os.walk('.'):
-    # print path to all subdirectories first.
-    for subdirname in dirnames:
-        if 'P' or 'D' in subdirname:
-            log('subdirname: ' + subdirname)
-            studentID = re.findall(r'\d+', subdirname)
-            log('len(studentID):'+ str(len(studentID)))
-            if len(studentID) == 1:
-                log('studentID:'+studentID[0])
-                file.write(studentID[0]+'\n')
-            print('Made new file: ' + path + '/' + docXname)
-            log('Made new file: ' + path + '/' + docXname)
-            copyfile(path + '/' + docXname, path+'/'+subdirname+'/' + subdirname+'.docx')
-        else:
-            print('ERROR! - Could not make file!')
-            log('ERROR! - Could not make file!')
-
-file.close()
-
-print('\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
-log('\nProcess done!\nYou will find a document in each folder and a StudentID.txt with all student identifikation numbers')
-
-
-        '''

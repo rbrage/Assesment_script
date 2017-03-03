@@ -1,11 +1,10 @@
 from tempfile import NamedTemporaryFile
 from shutil import copyfile
+from openpyxl import load_workbook
 import zipfile, csv, re, fnmatch, os, time, datetime, random
 
 # Change the names in here to the ones you have available.
-staff = ['Kim', 'Tom', 'Brage',  'Reza', 'Johnny']
-
-random.shuffle(staff)
+staff = []
 assesment_for_each_staff = []
 id_staff = []
 num_assesmentfolder = 0
@@ -16,6 +15,7 @@ def log(msg):
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
     log_fil.write(st + ':\t' + msg + '\n')
+    log_fil.close()
 
 def zipdir(path, ziph):
     # ziph is zipfile handle
@@ -54,7 +54,7 @@ def distribute_number_of_exam():
     remaining_assesments = (num_assesmentfolder % number_of_staff)
 
     for i in range(1, number_of_staff + 1):
-        print(i)
+        print(i , ' - ', staff[i-1])
         extra = 1 if i <= remaining_assesments else 0
         assesment_for_each_staff.append(int(number_for_each_staff + extra))
 
@@ -62,14 +62,11 @@ def distribute_number_of_exam():
     log('Sum of Distribution: '+str(sum(assesment_for_each_staff)))
 
 def select_staff():
-    x = 1
-    for i in staff:
-        print(x, ': ', i)
-        x += 1
-    you = input('Type in your number, or 0(zero) to skip:')
-    if you !=0:
-        staff.pop(int(you)-1)
-    log('Staff: ' + str(staff))
+    input_name = input('Type in names on how is going to assess. Use comma between if there is more than one.\n:')
+    global staff
+    staff = input_name.split(',')
+    random.shuffle(staff)
+    log('#{} - Staff: {}'.format(len(staff), str(staff)))
     global num_assesmentfolder
     num_assesmentfolder = count_assesment_folders()
     global id_staff
@@ -81,7 +78,7 @@ def count_assesment_folders():
     number_of_assesments = 0
     for dirname, dirnames, filenames in os.walk('.'):
         for subdirname in dirnames:
-            if fnmatch.fnmatch(subdirname, 'P*') or fnmatch.fnmatch(subdirname, 'D*'):
+            if fnmatch.fnmatch(subdirname, '*_assign*'):# or fnmatch.fnmatch(subdirname, 'D*'):
                 number_of_assesments += 1
     return number_of_assesments
 
@@ -102,10 +99,13 @@ def create_feedbackfiles():
     for dirname, dirnames, filenames in os.walk('.'):
         # print path to all subdirectories first.
         for subdirname in dirnames:
-            if fnmatch.fnmatch(subdirname, 'P*') or fnmatch.fnmatch(subdirname, 'D*'):
+            if fnmatch.fnmatch(subdirname, '*_assign*'):# or fnmatch.fnmatch(subdirname, 'D*'):
                 log('subdirname: ' + subdirname)
                 studentID = re.findall(r'\d+', subdirname)
                 log('len(studentID):' + str(len(studentID)))
+                log('assessment_for_each_staff {} '.format(assesment_for_each_staff))
+                log('x: {} -- i: {}'.format(x, i))
+                log('Staff: {}'.format(staff))
                 if x >= assesment_for_each_staff[i]:
                     i += 1
                     x = 0
@@ -114,7 +114,6 @@ def create_feedbackfiles():
                 if len(studentID) == 1:
                     log('studentID:' + studentID[0])
                     file.write(studentID[0] + '\t' + staff_name + '\n')
-                print(id_staff)
                 id_staff[i].append(subdirname)
                 copyfile(path + '/' + feedback_file_path, path + '/' + subdirname + '/' + subdirname + '.docx')
                 log('Made new file: ' + path + '/' + subdirname + '/' + subdirname + '.docx')
@@ -132,8 +131,16 @@ def create_feedbackfiles():
 def merge_csv_sheet():
     file_list = print_dir(('.csv'))
     print(file_list)
-    dist_sheet_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
-    print(dist_sheet_path)
+    dist_csv_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
+    print(dist_csv_path)
+
+
+
+    # with open(dist_csv_path) as csv_file:
+    #     reader = csv.reader(csv_file, delimiter=',')
+    #     print(reader)
+    #     for row in reader:
+    #         print(row)
     # grade_sheet_path = = file_list[int(input('Type in the number of the Grade sheet from moodle: '))]
 
 
@@ -148,19 +155,47 @@ def delete_student_exam():
                     print('File: ' + docxname)
                     os.remove(dirname + '/' + docxname)
 
+def read_xlsx_file():
+    file_list = print_dir(('.xlsx'))
+    print(file_list)
+    dist_xlsx_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
+    print(dist_xlsx_path)
+    wb = load_workbook(filename=dist_xlsx_path, read_only=False)
+    print(wb.sheetnames)
+    ws = wb['Sheet1']
+    for a_cell in ws['A']:
+        print(a_cell.value)
+
+def read_csv_file():
+    file_list = print_dir(('.csv'))
+    print(file_list)
+    dist_csv_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
+    print(dist_csv_path)
+
+
+
+
+    # with open(dist_csv_path) as csv_file:
+    #     reader = csv.reader(csv_file, delimiter=',')
+    #     for row in reader:
+    #         print(row)
 
 prog_to_run = input('What program/operation do you want to run? Type in the number:\n'
                     '\t1: Create feedback file in each folder, and collect the student ID in a list.\n')
-                    #'\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
+                    # '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
+                    # '\t3: Read csv file.\n')
                     #'\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
 prog_to_run = int(prog_to_run)
-select_staff()
+
 
 if prog_to_run == 1:
+    select_staff()
     create_feedbackfiles()
 elif prog_to_run == 2:
     merge_csv_sheet()
 elif prog_to_run == 3:
+    read_csv_file()
+elif prog_to_run == 4:
     delete_student_exam()
 else:
     print('Type in one of the number to choose select a script!')

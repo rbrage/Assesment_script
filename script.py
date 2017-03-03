@@ -1,6 +1,6 @@
 from tempfile import NamedTemporaryFile
 from shutil import copyfile
-from openpyxl import load_workbook
+#from openpyxl import load_workbook
 import zipfile, csv, re, fnmatch, os, time, datetime, random
 
 # Change the names in here to the ones you have available.
@@ -9,7 +9,7 @@ assesment_for_each_staff = []
 id_staff = []
 num_assesmentfolder = 0
 log_fil = open("script_Log.log", "w")
-
+distribution_grade = []
 
 def log(msg):
     ts = time.time()
@@ -163,8 +163,12 @@ def read_xlsx_file():
     wb = load_workbook(filename=dist_xlsx_path, read_only=False)
     print(wb.sheetnames)
     ws = wb['Sheet1']
-    for a_cell in ws['A']:
-        print(a_cell.value)
+    for row in ws.rows:
+        if row[0].value == 'Assignment ID':
+            continue
+        global distribution_grade
+        distribution_grade.append([row[0].value, row[4].value, row[5].value])
+    print(distribution_grade)
 
 def read_csv_file():
     file_list = print_dir(('.csv'))
@@ -172,18 +176,15 @@ def read_csv_file():
     dist_csv_path = file_list[int(input('Type in the number of the Distribution sheet: '))]
     print(dist_csv_path)
 
-
-
-
-    # with open(dist_csv_path) as csv_file:
-    #     reader = csv.reader(csv_file, delimiter=',')
-    #     for row in reader:
-    #         print(row)
+    with open(dist_csv_path) as csv_file:
+        reader = csv.reader(csv_file, delimiter=',')
+        for row in reader:
+            print(row)
 
 prog_to_run = input('What program/operation do you want to run? Type in the number:\n'
-                    '\t1: Create feedback file in each folder, and collect the student ID in a list.\n')
+                    '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
                     # '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
-                    # '\t3: Read csv file.\n')
+                    '\t3: Read csv file.\n')
                     #'\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
 prog_to_run = int(prog_to_run)
 

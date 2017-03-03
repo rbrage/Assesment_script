@@ -1,6 +1,6 @@
 from tempfile import NamedTemporaryFile
 from shutil import copyfile
-#from openpyxl import load_workbook
+from openpyxl import load_workbook
 import zipfile, csv, re, fnmatch, os, time, datetime, random
 
 # Change the names in here to the ones you have available.
@@ -9,7 +9,7 @@ assesment_for_each_staff = []
 id_staff = []
 num_assesmentfolder = 0
 log_fil = open("script_Log.log", "w")
-distribution_grade = []
+distribution_grade = dict()
 
 def log(msg):
     ts = time.time()
@@ -61,7 +61,7 @@ def distribute_number_of_exam():
     log('Sum of Distribution: '+str(sum(assesment_for_each_staff)))
 
 def select_staff():
-    input_name = input('Type in names on how is going to assess. Use comma between if there is more than one.\n:')
+    input_name = input('Type in names of who is going to assess. Use comma between if there is more than one:')
     global staff
     staff = input_name.split(',')
     random.shuffle(staff)
@@ -166,7 +166,8 @@ def read_xlsx_file():
         if row[0].value == 'Assignment ID':
             continue
         global distribution_grade
-        distribution_grade.append([row[0].value, row[4].value, row[5].value])
+        distribution_grade[row[0].value] = []
+        distribution_grade[row[0].value].append([row[4].value, row[5].value])
     print(distribution_grade)
 
 def read_csv_file():
@@ -176,9 +177,20 @@ def read_csv_file():
     print(dist_csv_path)
 
     with open(dist_csv_path) as csv_file:
-        reader = csv.reader(csv_file, delimiter=',')
+        reader = csv.DictReader(csv_file)
+        with open('names.csv', 'w') as csvfile:
+            fieldnames = ['ï»¿Identifier', 'Status', 'Grade', 'Scale', 'Grade can be changed',
+                          'Last modified (submission)',
+                          'Last modified (grade)', 'Feedback comments']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
         for row in reader:
-            print(row)
+            print()
+
+            writer.writeheader()
+            writer.writerow({'ï»¿Identifier': row['ï»¿Identifier'], 'last_name': 'Beans'})
+
+
 
 prog_to_run = input('What program/operation do you want to run? Type in the number:\n'
                     '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'

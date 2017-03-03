@@ -15,7 +15,6 @@ def log(msg):
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
     log_fil.write(st + ':\t' + msg + '\n')
-    log_fil.close()
 
 def zipdir(path, ziph):
     # ziph is zipfile handle

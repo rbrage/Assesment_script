@@ -196,7 +196,9 @@ prog_to_run = input('What program/operation do you want to run? Type in the numb
                     '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
                     # '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
                     '\t3: Read csv file.\n')
+                    '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n')
                     #'\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
+
 prog_to_run = int(prog_to_run)
 
 

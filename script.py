@@ -199,34 +199,36 @@ def read_xlsx_file():
         global distribution_grade
         distribution_grade[row[0].value] = []
         distribution_grade[row[0].value].append([row[4].value, row[5].value])
-        print(distribution_grade)
+        #print(distribution_grade)
         global grade_value
         grade_value.append(row[4].value)
-    calculate_stats()
+   # calculate_stats()
 
 def read_csv_file():
     log('read_csv_file')
     file_list = print_dir(('.csv'))
     dist_csv_path = file_list[int(input('Type in the number of the Grade sheet from Moodle sheet:'))]
 
-    with open(dist_csv_path) as csv_file:
-        reader = csv.DictReader(csv_file)
-        with open('NEW-Greading-upload.csv', 'w') as csvfile:
-            fieldnames = ['\ufeffIdentifier', 'Status', 'Grade', 'Scale', 'Grade can be changed',
+    with open(dist_csv_path, "r",newline='', encoding='utf-8') as csv_file:
+        reader = csv.DictReader(csv_file,delimiter=',')
+
+        with open('NEW-Greading-upload.csv', 'w', encoding='utf-8') as csvfile:
+            fieldnames = ['\ufeffIdentifier', 'Status', 'Grade', 'Maximum Grade', 'Grade can be changed',
                           'Last modified (submission)',
                           'Last modified (grade)', 'Feedback comments']
-            writer = csv.DictWriter(csvfile, delimiter=',', fieldnames=fieldnames)
+            writer = csv.DictWriter(csvfile,delimiter=',', fieldnames=fieldnames)
             writer.writeheader()
             for row in reader:
-                p_id = int(re.findall(r'\d+', row['\ufeffIdentifier'])[0])
+                p_id = re.findall(r'\d+', row['\ufeffIdentifier'])[0]
+                print(row)
                 writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],
                                  'Status': row['Status'],
-                                 'Grade': distribution_grade[p_id][0][1],
-                                 'Scale': row['Scale'],
+                                 'Grade': distribution_grade[p_id][0][0],
+                                 'Maximum Grade': row['Maximum Grade'],
                                  'Grade can be changed': row['Grade can be changed'],
                                  'Last modified (submission)': row['Last modified (submission)'],
                                  'Last modified (grade)': row['Last modified (grade)'],
-                                 'Feedback comments': 'Score = '+distribution_grade[p_id][0][0]})
+                                 'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
 prog_to_run = -1
 while prog_to_run != 0:
     prog_to_run = int(input('What program/operation do you want to run? Type in the number, 0 to quit:\n'
@@ -244,3 +246,4 @@ while prog_to_run != 0:
     else:
         print('Type in one of the number to choose select a script!')
 
+log_fil.close()

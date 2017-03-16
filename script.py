@@ -220,13 +220,10 @@ def read_csv_file():
     dist_csv_path = file_list[int(input('Type in the number of the Grade sheet from Moodle sheet:'))]
     log('dist_csv_path -> '+ dist_csv_path)
     with open(dist_csv_path, "r", newline='', encoding='utf-8') as csv_file:
-        reader = csv.DictReader(csv_file,delimiter=',')
+        reader = csv.DictReader(csv_file, delimiter=',')
 
         with open(path+'/NEW-Greading-upload.csv', 'w', encoding='utf-8') as csvfile:
-            fieldnames = ['\ufeffIdentifier', 'Status', 'Grade', 'Maximum Grade', 'Grade can be changed',
-                          'Last modified (submission)',
-                          'Last modified (grade)', 'Feedback comments']
-            writer = csv.DictWriter(csvfile,delimiter=',', fieldnames=fieldnames)
+            writer = csv.DictWriter(csvfile, delimiter=',', fieldnames=reader.fieldnames)
             writer.writeheader()
             for row in reader:
                 p_id = re.findall(r'\d+', row['\ufeffIdentifier'])[0]

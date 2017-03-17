@@ -1,11 +1,12 @@
 #!/usr/local/bin python3
-from shutil import copyfile
+from shutil import copyfile, move
 from openpyxl import load_workbook, Workbook
 import zipfile, csv, re, fnmatch, os, sys, time, datetime, random, statistics
 
 """
 PATH="$PATH:/Library/Frameworks/Python.framework/Versions/3.5/bin/"
 pyinstaller -F --additional-hooks-dir='.' script.py
+pyinstaller -F script.py
 """
 # Change the names in here to the ones you have available.
 staff = []
@@ -25,11 +26,11 @@ def log(msg):
     log_fil.write(st + ':\t' + msg + '\n')
     log_fil.close()
 
-def zipdir(path, ziph):
+def zipdir(path_zip, ziph):
     # ziph is zipfile handle
-    for root, dirs, files in os.walk(path):
+    for root, dirs, files in os.walk(path_zip):
         for file in files:
-            ziph.write(os.path.join(root, file))
+            ziph.write(os.path.join(path_zip, file))
 
 def make_zip():
     for i in range(len(staff)):
@@ -41,7 +42,6 @@ def make_zip():
                 pass
         log('Created: '+staff[i] + '.zip')
         zf.close()
-
 
 def print_dir(end_sufix):
     print("Path: " + path)
@@ -81,7 +81,6 @@ def select_staff():
     id_staff = [[] for i in range(len(staff))]
     distribute_number_of_exam()
 
-
 def count_assesment_folders():
     number_of_assesments = 0
     files = os.listdir(path=path)
@@ -89,7 +88,6 @@ def count_assesment_folders():
         if fnmatch.fnmatch(name, '*_assign*'):
             number_of_assesments += 1
     return number_of_assesments
-
 
 def create_sheet_header_info(wb):
     ws = wb.create_sheet("Distribution", 0)
@@ -106,7 +104,6 @@ def create_sheet_header_info(wb):
         ws.cell(row=x+3, column=11, value=assesment_for_each_staff[x])
 
     return ws
-
 
 def create_feedbackfiles():
     log('Create_feedbackfile')
@@ -156,7 +153,6 @@ def create_feedbackfiles():
         '\nProcess done!\nYou will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
     log(
         'Process done! You will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
-
 
 def merge_csv_sheet():
     read_xlsx_file()
@@ -209,10 +205,10 @@ def read_xlsx_file():
         global distribution_grade
         distribution_grade[row[0].value] = []
         distribution_grade[row[0].value].append([row[4].value, row[5].value])
-        #print(distribution_grade)
         global grade_value
         grade_value.append(row[4].value)
-   # calculate_stats()
+    print(distribution_grade)
+    calculate_stats()
 
 def read_csv_file():
     log('read_csv_file')
@@ -221,20 +217,44 @@ def read_csv_file():
     log('dist_csv_path -> '+ dist_csv_path)
     with open(dist_csv_path, "r", newline='', encoding='utf-8') as csv_file:
         reader = csv.DictReader(csv_file, delimiter=',')
-
+        log('distribution_grade: {} '.format(distribution_grade))
         with open(path+'/NEW-Greading-upload.csv', 'w', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, delimiter=',', fieldnames=reader.fieldnames)
             writer.writeheader()
             for row in reader:
                 p_id = re.findall(r'\d+', row['\ufeffIdentifier'])[0]
-                writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],
-                                 'Status': row['Status'],
-                                 'Grade': distribution_grade[p_id][0][0],
-                                 'Maximum Grade': row['Maximum Grade'],
-                                 'Grade can be changed': row['Grade can be changed'],
-                                 'Last modified (submission)': row['Last modified (submission)'],
-                                 'Last modified (grade)': row['Last modified (grade)'],
-                                 'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
+                log('p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
+                p_id = int(p_id)
+                if p_id in distribution_grade:
+                    writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],
+                                     'Status': row['Status'],
+                                     'Grade': distribution_grade[p_id][0][0],
+                                     'Maximum Grade': row['Maximum Grade'],
+                                     'Grade can be changed': row['Grade can be changed'],
+                                     'Last modified (submission)': row['Last modified (submission)'],
+                                     'Last modified (grade)': row['Last modified (grade)'],
+                                     'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
+
+def make_feedback_zip():
+    file_list = print_dir('completed')
+    completed_file_path = file_list[int(input('Type in the number of the feedback file folder: '))]
+    makedir(completed_file_path)
+
+def makedir(completed_file_path):
+    files = os.listdir(path=completed_file_path)
+    log('MAKEDIR: {}'.format(files) )
+    for docxname in files:
+        try:
+            log('File exist: {}'.format(os.path.isfile(os.path.join(completed_file_path, docxname.strip('.docx')))))
+            if not os.path.isfile(os.path.join(completed_file_path, docxname.strip('.docx'))):
+                os.mkdir(os.path.join(completed_file_path, docxname.strip('.docx')))
+                if os.path.isfile(os.path.join(completed_file_path, docxname)):
+                    move(os.path.join(completed_file_path, docxname), os.path.join(completed_file_path, docxname.strip('.docx')))
+        except FileExistsError as msg:
+            log('{}'.format(msg))
+    zf = zipfile.ZipFile(os.path.join(path,'Feedback.zip'), 'w', zipfile.ZIP_DEFLATED)
+    log('ZIP: {}'.format(os.path.join(path,'Feedback.zip')))
+    zipdir('completed/', zf)
 
 log_fil = open(path+"/script_Log.log", "w")
 log_fil.write('LOG FOR ASSESSMENT SCRIPT\n')
@@ -244,14 +264,16 @@ prog_to_run = -1
 while prog_to_run != 0:
     prog_to_run = int(input('What program/operation do you want to run? Type in the number, 0 to quit:\n'
                         '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
-                        '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'))
-                        #'\t3: Keep only the feedback file and remove the students exam in the folder.\n:')
+                        '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
+                        '\t3: Make feedback zip.\n:'))
 
     if prog_to_run == 1:
         select_staff()
         create_feedbackfiles()
     elif prog_to_run == 2:
         merge_csv_sheet()
+    elif prog_to_run == 3:
+        make_feedback_zip()
     elif prog_to_run == 0:
         exit(0)
     else:

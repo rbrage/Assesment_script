@@ -1,7 +1,7 @@
 #!/usr/local/bin python3
 from shutil import copyfile, move
 from openpyxl import load_workbook, Workbook
-import zipfile, csv, re, fnmatch, os, sys, time, datetime, random, statistics
+import zipfile2, csv, re, fnmatch, os, sys, time, datetime, random, statistics, inspect
 
 """
 PATH="$PATH:/Library/Frameworks/Python.framework/Versions/3.5/bin/"
@@ -11,7 +11,7 @@ pyinstaller -F script.py
 # Change the names in here to the ones you have available.
 staff = []
 assesment_for_each_staff = []
-id_staff = []
+folders_to_zip = []
 num_assesmentfolder = 0
 path = os.path.dirname(os.path.realpath(sys.argv[0]))
 log_fil = open(path+"/script_Log.log", "w")
@@ -19,41 +19,56 @@ log_fil.close()
 distribution_grade = dict()
 grade_value = []
 
-def log(msg):
+def log(whoami,msg):
     log_fil = open(path+"/script_Log.log", "a")
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-    log_fil.write(st + ':\t' + msg + '\n')
+    log_fil.write(st + ':\t'+whoami+'-->\t' + msg + '\n')
     log_fil.close()
 
-def zipdir(path_zip, ziph):
-    # ziph is zipfile handle
-    for root, dirs, files in os.walk(path_zip):
-        for file in files:
-            ziph.write(os.path.join(path_zip, file))
+def whoami():
+    return inspect.stack()[1][3]
 
-def make_zip():
+def zipdir(path_zip, ziph):
+    log(whoami(), 'path: {}'.format(path_zip))
+    log(whoami(), 'full path: {}'.format(os.path.join(path, path_zip)))
+    for root, dirs, files in os.walk(os.path.join(path, path_zip)):
+        for file in files:
+            log(whoami(), 'Writing zip {}'.format(os.path.join(root, file),os.path.relpath(os.path.join(root, file), os.path.join(path, '..'))))
+            ziph.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), os.path.join(path, '..')))
+
+def make_zip_to_staff():
+    log(whoami(), 'folders_to_zip: {} {}'.format(folders_to_zip, len(folders_to_zip)))
+    log(whoami(), 'staff: {} {}'.format(staff, len(staff)))
     for i in range(len(staff)):
-        zf = zipfile.ZipFile(path + '/' + staff[i] +'.zip', 'w', zipfile.ZIP_DEFLATED)
-        for j in range(len(id_staff[i])):
+        zf = zipfile2.ZipFile(path + '/' + staff[i] +'.zip', 'w', zipfile2.ZIP_DEFLATED)
+        log(whoami(), 'folders_to_zip: {}'.format(folders_to_zip[i]))
+        for j in range(len(folders_to_zip[i])):
             try:
-                zipdir(id_staff[i][j]+'/', zf)
+                zipdir(folders_to_zip[i][j] + '/', zf)
             finally:
                 pass
-        log('Created: '+staff[i] + '.zip')
+        log(whoami(),'Created: '+staff[i] + '.zip')
+        log(whoami(),'\t\tinfo: {}'.format(zf.infolist()))
         zf.close()
 
-def print_dir(end_sufix):
-    print("Path: " + path)
-    i = 0
+def search_dir(path,*args, **kwargs):
+    end_sufix = args
+    log(whoami(), 'end_sufix: {}'.format(end_sufix))
+    global file_list
     file_list = []
     files = os.listdir(path=path)
     for docxname in files:
-        if docxname.endswith(end_sufix):
-            print(i, ': ' + docxname)
-            file_list.append(os.path.join(path,docxname))
-            i += 1
+        if docxname.endswith(end_sufix[0]):
+            file_list.append(os.path.join(path, docxname))
     return file_list
+
+def print_dir():
+    print("Path: " + path)
+    i = 0
+    for docxname in file_list:
+        print(i, ': ' + docxname)
+        i += 1
 
 def distribute_number_of_exam():
     number_of_staff = len(staff)
@@ -65,8 +80,8 @@ def distribute_number_of_exam():
         extra = 1 if i <= remaining_assesments else 0
         assesment_for_each_staff.append(int(number_for_each_staff + extra))
 
-    log('Distribution: '+str(assesment_for_each_staff))
-    log('Sum of Distribution: '+str(sum(assesment_for_each_staff)))
+    log(whoami(),'Distribution: '+str(assesment_for_each_staff))
+    log(whoami(),'Sum of Distribution: '+str(sum(assesment_for_each_staff)))
 
 def select_staff():
     input_names = input('Type in names of who is going to assess. Use comma between if there is more than one:')
@@ -74,11 +89,11 @@ def select_staff():
     global staff
     staff = [x.strip() for x in input_names.split(',')]
     random.shuffle(staff)
-    log('#{} - Staff: {}'.format(len(staff), str(staff)))
+    log(whoami(),'#{} - Staff: {}'.format(len(staff), str(staff)))
     global num_assesmentfolder
     num_assesmentfolder = count_assesment_folders()
-    global id_staff
-    id_staff = [[] for i in range(len(staff))]
+    global folders_to_zip
+    folders_to_zip = [[] for i in range(len(staff))]
     distribute_number_of_exam()
 
 def count_assesment_folders():
@@ -106,16 +121,18 @@ def create_sheet_header_info(wb):
     return ws
 
 def create_feedbackfiles():
-    log('Create_feedbackfile')
-    file_list = print_dir(('.docx', '.doc'))
-    log(str(file_list))
+    global folders_to_zip
+    log(whoami(),'Create_feedbackfile')
+    file_list = search_dir(path, '.docx', '.doc')
+    print_dir()
+    log(whoami(), str(file_list))
     feedback_file_path = file_list[int(input('Type in the number of the feedback file: '))]
     folder_name = os.path.dirname(path)
-    log("Path: " + path)
-    log("Folder name: " + folder_name)
+    log(whoami(),"Path: " + path)
+    log(whoami(),"Folder name: " + folder_name)
     wb = Workbook()
     ws = create_sheet_header_info(wb)
-    log('Created Headers to Distribution.xlsx')
+    log(whoami(),'Created Headers to Distribution.xlsx')
     i = 0
     x = 0
     z = 1
@@ -123,12 +140,12 @@ def create_feedbackfiles():
         # print path to all subdirectories first.
         for subdirname in dirnames:
             if fnmatch.fnmatch(subdirname, '*_assign*'):
-                log('subdirname: ' + subdirname)
+                log(whoami(),'subdirname: ' + subdirname)
                 studentID = re.findall(r'\d+', subdirname)
-                log('len(studentID):' + str(len(studentID)))
-                log('assessment_for_each_staff {} '.format(assesment_for_each_staff))
-                log('x: {} -- i: {}'.format(x, i))
-                log('Staff: {}'.format(staff))
+                log(whoami(),'len(studentID):' + str(len(studentID)))
+                log(whoami(),'assessment_for_each_staff {} '.format(assesment_for_each_staff))
+                log(whoami(),'x: {} -- i: {}'.format(x, i))
+                log(whoami(),'Staff: {}'.format(staff))
                 if x >= assesment_for_each_staff[i]:
                     i += 1
                     x = 0
@@ -136,32 +153,34 @@ def create_feedbackfiles():
                 x += 1
                 if len(studentID) == 1:
                     z += 1
-                    log('studentID:' + studentID[0])
+                    log(whoami(),'studentID: {} {}'.format(studentID[0], type(studentID[0])))
                     ws.cell(row=z, column=1, value=studentID[0])
                     ws.cell(row=z, column=2, value=staff_name)
                     wb.save(path+'/Distribution.xlsx')
-                id_staff[i].append(subdirname)
+                folders_to_zip[i].append(subdirname)
                 copyfile(feedback_file_path, path + '/' + subdirname + '/' + subdirname + '.docx')
-                log('Made new file: ' + path + '/' + subdirname + '/' + subdirname + '.docx')
+                log(whoami(),'Made new file: ' + path + '/' + subdirname + '/' + subdirname + '.docx')
 
-    log('Saved '+path+'/Distribution.xlsx')
-    log('Folders to zip: '+ str(id_staff))
+    log(whoami(),'Saved '+path+'/Distribution.xlsx')
+    log(whoami(),'Folders to zip (id_staff): ' + str(folders_to_zip))
 
-    make_zip()
+    make_zip_to_staff()
+    if not os.path.isfile(os.path.join(path, 'completed')):
+        os.mkdir(os.path.join(path, 'completed'))
 
     print(
         '\nProcess done!\nYou will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
-    log(
+    log(whoami(),
         'Process done! You will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
 
 def merge_csv_sheet():
     read_xlsx_file()
-    log('Done read_xlsx_file')
+    log(whoami(),'Done read_xlsx_file')
     read_csv_file()
-    log('Done read_csv_file')
+    log(whoami(),'Done read_csv_file')
     print(
         '\nProcess done!\nYou will find a NEW csv file ready to upload to moodle')
-    log(
+    log(whoami(),
         'Process done! You will find a NEW csv file ready to upload to moodle')
 
 def delete_student_exam():
@@ -188,15 +207,16 @@ def calculate_stats():
         stat_file.write('Standard deviation:\t {} - Sample standard deviation of data.\n'.format(statistics.stdev(grade_value)))
         stat_file.write('Variance:\t {} - Sample variance of data.\n'.format(statistics.variance(grade_value)))
         stat_file.close()
-        log('Done calculated stats')
+        log(whoami(),'Done calculated stats')
     except TypeError as msg:
         log(msg)
 
 def read_xlsx_file():
-    log('read_xlsx_file')
-    file_list = print_dir(('.xlsx'))
+    log(whoami(),'read_xlsx_file')
+    file_list = search_dir(path, '.xlsx')
+    print_dir()
     dist_xlsx_path = file_list[int(input('Type in the number of the Distribution sheet:'))]
-    log('dist_xlsx_path -> '+ dist_xlsx_path)
+    log(whoami(),'dist_xlsx_path -> '+ dist_xlsx_path)
     wb = load_workbook(filename=dist_xlsx_path, read_only=False)
     ws = wb['Distribution']
     for row in ws.rows:
@@ -211,20 +231,22 @@ def read_xlsx_file():
     calculate_stats()
 
 def read_csv_file():
-    log('read_csv_file')
-    file_list = print_dir(('.csv'))
+    log(whoami(),'read_csv_file')
+    file_list = search_dir(path, '.csv')
+    print_dir()
     dist_csv_path = file_list[int(input('Type in the number of the Grade sheet from Moodle sheet:'))]
-    log('dist_csv_path -> '+ dist_csv_path)
+    log(whoami(),'dist_csv_path -> '+ dist_csv_path)
     with open(dist_csv_path, "r", newline='', encoding='utf-8') as csv_file:
         reader = csv.DictReader(csv_file, delimiter=',')
-        log('distribution_grade: {} '.format(distribution_grade))
+        log(whoami(),'distribution_grade: {} '.format(distribution_grade))
         with open(path+'/NEW-Greading-upload.csv', 'w', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, delimiter=',', fieldnames=reader.fieldnames)
             writer.writeheader()
             for row in reader:
                 p_id = re.findall(r'\d+', row['\ufeffIdentifier'])[0]
-                log('p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
+                log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
                 p_id = int(p_id)
+                log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
                 if p_id in distribution_grade:
                     writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],
                                      'Status': row['Status'],
@@ -236,25 +258,33 @@ def read_csv_file():
                                      'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
 
 def make_feedback_zip():
-    file_list = print_dir('completed')
+    file_list = search_dir(path, 'completed')
+    print_dir()
     completed_file_path = file_list[int(input('Type in the number of the feedback file folder: '))]
     makedir(completed_file_path)
 
 def makedir(completed_file_path):
     files = os.listdir(path=completed_file_path)
-    log('MAKEDIR: {}'.format(files) )
+    log(whoami(),'MAKEDIR: {}'.format(files) )
     for docxname in files:
         try:
-            log('File exist: {}'.format(os.path.isfile(os.path.join(completed_file_path, docxname.strip('.docx')))))
+            log(whoami(),'File exist: {}'.format(os.path.isfile(os.path.join(completed_file_path, docxname.strip('.docx')))))
             if not os.path.isfile(os.path.join(completed_file_path, docxname.strip('.docx'))):
                 os.mkdir(os.path.join(completed_file_path, docxname.strip('.docx')))
                 if os.path.isfile(os.path.join(completed_file_path, docxname)):
                     move(os.path.join(completed_file_path, docxname), os.path.join(completed_file_path, docxname.strip('.docx')))
         except FileExistsError as msg:
-            log('{}'.format(msg))
-    zf = zipfile.ZipFile(os.path.join(path,'Feedback.zip'), 'w', zipfile.ZIP_DEFLATED)
-    log('ZIP: {}'.format(os.path.join(path,'Feedback.zip')))
-    zipdir('completed/', zf)
+            log(whoami(),'{}'.format(msg))
+    zf = zipfile2.ZipFile(os.path.join(path,'Feedback.zip'), 'w', zipfile2.ZIP_DEFLATED)
+    log(whoami(),'ZIP: {}'.format(os.path.join(path,'Feedback.zip')))
+    folders_to_zip_feedback = search_dir(os.path.join(path, 'completed/'),'_file_')
+    log(whoami(), 'folders_to_zip_feedback: {}'.format(folders_to_zip_feedback))
+    for folder_path in folders_to_zip_feedback:
+        try:
+            zipdir(folder_path, zf)
+        finally:
+            log(whoami(), 'ZIP: {}'.format(zf.infolist()))
+
 
 log_fil = open(path+"/script_Log.log", "w")
 log_fil.write('LOG FOR ASSESSMENT SCRIPT\n')
@@ -275,6 +305,6 @@ while prog_to_run != 0:
     elif prog_to_run == 3:
         make_feedback_zip()
     elif prog_to_run == 0:
-        exit(0)
+        sys.exit(0)
     else:
         print('Type in one of the number to choose select a script!')

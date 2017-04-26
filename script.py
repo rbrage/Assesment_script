@@ -245,7 +245,7 @@ def read_csv_file():
             for row in reader:
                 p_id = re.findall(r'\d+', row['\ufeffIdentifier'])[0]
                 log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
-                p_id = int(p_id)
+                #p_id = int(p_id)
                 log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
                 if p_id in distribution_grade:
                     writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],

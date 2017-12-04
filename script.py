@@ -1,12 +1,14 @@
 #!/usr/local/bin python3
 from shutil import copyfile, move
+
 from openpyxl import load_workbook, Workbook
 import zipfile2, csv, re, fnmatch, os, sys, time, datetime, random, statistics, inspect
+from docx import Document
 
 """
 PATH="$PATH:/Library/Frameworks/Python.framework/Versions/3.5/bin/"
-pyinstaller -F --additional-hooks-dir='.' script.py
-pyinstaller -F script.py
+pyinstaller -F --additional-hooks-dir='.' script_osx_remove_author.py
+pyinstaller -F script_osx_remove_author.py
 """
 # Change the names in here to the ones you have available.
 staff = []
@@ -18,6 +20,8 @@ log_fil = open(path+"/script_Log.log", "w")
 log_fil.close()
 distribution_grade = dict()
 grade_value = []
+feedback_files_docx = []
+feedback_files_pdf = []
 
 def log(whoami,msg):
     log_fil = open(path+"/script_Log.log", "a")
@@ -239,7 +243,7 @@ def read_csv_file():
     with open(dist_csv_path, "r", newline='', encoding='utf-8') as csv_file:
         reader = csv.DictReader(csv_file, delimiter=',')
         log(whoami(),'distribution_grade: {} '.format(distribution_grade))
-        with open(path+'/NEW-Greading-upload.csv', 'w', encoding='utf-8') as csvfile:
+        with open(path+'/NEW-Greeding-upload.csv', 'w', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, delimiter=',', fieldnames=reader.fieldnames)
             writer.writeheader()
             for row in reader:
@@ -256,6 +260,27 @@ def read_csv_file():
                                      'Last modified (submission)': row['Last modified (submission)'],
                                      'Last modified (grade)': row['Last modified (grade)'],
                                      'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
+
+def collect_feedback_files(completed_file_path):
+    log(whoami(), 'Collect Feedback files')
+    for dirname, dirnames, filenames in os.walk(completed_file_path):
+        global feedback_files_docx
+        for docname in filenames:
+            if docname[-5:] == ".docx":
+                path = os.path.abspath(os.path.join(completed_file_path, dirname, docname))
+                feedback_files_docx.append(path)
+        change_docx_attributes()
+
+def change_docx_attributes():
+    for docname in feedback_files_docx:
+        log(whoami(), 'Docname: {}'.format(docname))
+        doc = Document(docname)
+        core_properties = doc.core_properties
+        meta_fields= ["author", "last_modified_by"]
+        for meta_field in meta_fields:
+            setattr(core_properties, meta_field, "Noroff-IT Team")
+            log(whoami(), 'Author change to {}'.format("Noroff-IT Team"))
+        doc.save(docname)
 
 def make_feedback_zip():
     file_list = search_dir(path, 'completed')
@@ -275,6 +300,8 @@ def makedir(completed_file_path):
                     move(os.path.join(completed_file_path, docxname), os.path.join(completed_file_path, docxname.strip('.docx')))
         except FileExistsError as msg:
             log(whoami(),'{}'.format(msg))
+
+    collect_feedback_files(completed_file_path)
     zf = zipfile2.ZipFile(os.path.join(path,'Feedback.zip'), 'w', zipfile2.ZIP_DEFLATED)
     log(whoami(),'ZIP: {}'.format(os.path.join(path,'Feedback.zip')))
     folders_to_zip_feedback = search_dir(os.path.join(path, 'completed/'),'_file_')
@@ -307,4 +334,4 @@ while prog_to_run != 0:
     elif prog_to_run == 0:
         sys.exit(0)
     else:
-        print('Type in one of the number to choose select a script!')
+        print('Type in one of the number to choose select a script_osx_remove_author!')

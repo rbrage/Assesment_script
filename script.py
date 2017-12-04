@@ -1,14 +1,21 @@
 #!/usr/local/bin python3
+
 from shutil import copyfile, move
 
+from shutil import copyfile, move, copy2, copyfileobj
 from openpyxl import load_workbook, Workbook
 import zipfile2, csv, re, fnmatch, os, sys, time, datetime, random, statistics, inspect
 from docx import Document
 
 """
+OSx:
 PATH="$PATH:/Library/Frameworks/Python.framework/Versions/3.5/bin/"
-pyinstaller -F --additional-hooks-dir='.' script_osx_remove_author.py
 pyinstaller -F script_osx_remove_author.py
+pyinstaller -F --additional-hooks-dir='.' script.py
+
+WIN:
+pyinstaller -F script.py
+
 """
 # Change the names in here to the ones you have available.
 staff = []
@@ -32,6 +39,7 @@ def log(whoami,msg):
 
 def whoami():
     return inspect.stack()[1][3]
+
 
 def zipdir(path_zip, ziph):
     log(whoami(), 'path: {}'.format(path_zip))
@@ -187,6 +195,30 @@ def merge_csv_sheet():
     log(whoami(),
         'Process done! You will find a NEW csv file ready to upload to moodle')
 
+
+def copyLargeFile(src, dest, buffer_size=16000):
+    with open(src, 'rb') as fsrc:
+        with open(dest, 'wb') as fdest:
+            copyfileobj(fsrc, fdest, buffer_size)
+
+
+def move_student_exam():
+    log(whoami(),'Move student exam start!')
+    print(os.path.isdir(os.path.join(path, 'pdf')))
+    if not os.path.isdir(os.path.join(path, 'pdf')):
+        os.mkdir(os.path.join(path, 'pdf'))
+    for dirname, dirnames, filenames in os.walk(path):
+        # print path to all subdirectories first.
+        for subdirname in dirnames:
+            if fnmatch.fnmatch(subdirname, '*_assign*'):
+                for subsubdirname, subdirnames, subdirfiles in os.walk(os.path.join(path,subdirname)):
+                    for subdirfile in subdirfiles:
+                        if subdirfile.endswith("pdf"):
+                            newfilename = "{}{}".format(subdirname, subdirfile)
+                            log(whoami(), "{}{}".format(os.path.join(dirname, subdirname, subdirfile) ,os.path.join(path, 'pdf', newfilename)))
+                            copyLargeFile(os.path.join(dirname, subdirname), os.path.join(path, 'pdf', newfilename))
+
+
 def delete_student_exam():
     for dirname, dirnames, filenames in os.walk(path):
         # print path to all subdirectories first.
@@ -199,6 +231,7 @@ def delete_student_exam():
                     os.remove(dirname + '/' + docxname)
 
 def calculate_stats():
+    print("STAT:", type(grade_value), grade_value)
     try:
         stat_file = open(path+'/CP_statistics.txt', 'w')
         stat_file.write('Mean:\t {} - Arithmetic mean (“average”) of data.\n'.format(statistics.mean(grade_value)))
@@ -213,7 +246,7 @@ def calculate_stats():
         stat_file.close()
         log(whoami(),'Done calculated stats')
     except TypeError as msg:
-        log(msg)
+        log(whoami(), msg)
 
 def read_xlsx_file():
     log(whoami(),'read_xlsx_file')
@@ -249,17 +282,19 @@ def read_csv_file():
             for row in reader:
                 p_id = re.findall(r'\d+', row['\ufeffIdentifier'])[0]
                 log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
-                #p_id = int(p_id)
+                p_id = int(p_id)
                 log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
                 if p_id in distribution_grade:
                     writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],
                                      'Status': row['Status'],
-                                     'Grade': distribution_grade[p_id][0][0],
-                                     'Maximum Grade': row['Maximum Grade'],
+                                     'Grade': distribution_grade[p_id][0][1],
+                                     'Scale': row['Scale'],
+                                     #'Maximum Grade': row['Maximum Grade'],
                                      'Grade can be changed': row['Grade can be changed'],
                                      'Last modified (submission)': row['Last modified (submission)'],
                                      'Last modified (grade)': row['Last modified (grade)'],
-                                     'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
+                                     #'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
+                                     'Feedback comments': 'Points = {}'.format(distribution_grade[p_id][0][0])})
 
 def collect_feedback_files(completed_file_path):
     log(whoami(), 'Collect Feedback files')
@@ -286,14 +321,17 @@ def make_feedback_zip():
     file_list = search_dir(path, 'completed')
     print_dir()
     completed_file_path = file_list[int(input('Type in the number of the feedback file folder: '))]
+    log(whoami(), 'MAKEDIR')
+    log(whoami(), 'MAKEDIR PATH {}'.format(completed_file_path))
     makedir(completed_file_path)
 
 def makedir(completed_file_path):
+    log(whoami(), 'MAKEDIR START')
     files = os.listdir(path=completed_file_path)
-    log(whoami(),'MAKEDIR: {}'.format(files) )
     for docxname in files:
+        #log(whoami(), 'MAKEDIR FOR: {} {}'.format(completed_file_path, docxname))
         try:
-            log(whoami(),'File exist: {}'.format(os.path.isfile(os.path.join(completed_file_path, docxname.strip('.docx')))))
+            #log(whoami(),'File exist: {}'.format(os.path.isfile(os.path.join(completed_file_path.decode(), docxname.strip('.docx')))))
             if not os.path.isfile(os.path.join(completed_file_path, docxname.strip('.docx'))):
                 os.mkdir(os.path.join(completed_file_path, docxname.strip('.docx')))
                 if os.path.isfile(os.path.join(completed_file_path, docxname)):
@@ -322,7 +360,8 @@ while prog_to_run != 0:
     prog_to_run = int(input('What program/operation do you want to run? Type in the number, 0 to quit:\n'
                         '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
                         '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
-                        '\t3: Make feedback zip.\n:'))
+                        '\t3: Make feedback zip.\n'
+                        '\t4: Copy PDF to pfd folder.\n:'))
 
     if prog_to_run == 1:
         select_staff()
@@ -331,6 +370,8 @@ while prog_to_run != 0:
         merge_csv_sheet()
     elif prog_to_run == 3:
         make_feedback_zip()
+    elif prog_to_run == 4:
+        move_student_exam()
     elif prog_to_run == 0:
         sys.exit(0)
     else:

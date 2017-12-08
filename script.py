@@ -264,8 +264,8 @@ def read_xlsx_file():
         distribution_grade[row[0].value].append([row[4].value, row[5].value])
         global grade_value
         grade_value.append(row[4].value)
-    print(distribution_grade)
-    calculate_stats()
+    #print(distribution_grade)
+    #calculate_stats()
 
 def read_csv_file():
     log(whoami(),'read_csv_file')
@@ -282,19 +282,20 @@ def read_csv_file():
             for row in reader:
                 p_id = re.findall(r'\d+', row['\ufeffIdentifier'])[0]
                 log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
-                p_id = int(p_id)
-                log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
+                #p_id = int(p_id)
+                #log(whoami(),'p_id: {} {} in: {} '.format(p_id,type(p_id), p_id in distribution_grade))
+                log(whoami(), 'p_id in dist: {}'.format(p_id in distribution_grade))
                 if p_id in distribution_grade:
                     writer.writerow({'\ufeffIdentifier': row['\ufeffIdentifier'],
                                      'Status': row['Status'],
-                                     'Grade': distribution_grade[p_id][0][1],
-                                     'Scale': row['Scale'],
-                                     #'Maximum Grade': row['Maximum Grade'],
+                                     'Grade': distribution_grade[p_id][0][0],
+                                     #'Scale': row['Scale'],
+                                     'Maximum Grade': row['Maximum Grade'],
                                      'Grade can be changed': row['Grade can be changed'],
                                      'Last modified (submission)': row['Last modified (submission)'],
                                      'Last modified (grade)': row['Last modified (grade)'],
-                                     #'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
-                                     'Feedback comments': 'Points = {}'.format(distribution_grade[p_id][0][0])})
+                                     'Feedback comments': 'Grade = {}'.format(distribution_grade[p_id][0][1])})
+                                     #'Feedback comments': 'Points = {}'.format(distribution_grade[p_id][0][0])})
 
 def collect_feedback_files(completed_file_path):
     log(whoami(), 'Collect Feedback files')

@@ -3,7 +3,8 @@
 from shutil import copyfile, move
 
 from shutil import copyfile, move, copy2, copyfileobj
-from openpyxl import load_workbook, Workbook
+from openpyxl import load_workbook, Workbook, utils
+
 import zipfile2, csv, re, fnmatch, os, sys, time, datetime, random, statistics, inspect
 from docx import Document
 
@@ -17,7 +18,7 @@ WIN:
 pyinstaller -F script.py
 
 """
-# Change the names in here to the ones you have available.
+
 staff = []
 assesment_for_each_staff = []
 folders_to_zip = []
@@ -29,6 +30,7 @@ distribution_grade = dict()
 grade_value = []
 feedback_files_docx = []
 feedback_files_pdf = []
+assessment_criteria = [['Introduction',20], ['Main part',40], ['Conclusion',20], ['Reference',20]]
 
 def log(whoami,msg):
     log_fil = open(path+"/script_Log.log", "a")
@@ -44,6 +46,7 @@ def whoami():
 def zipdir(path_zip, ziph):
     log(whoami(), 'path: {}'.format(path_zip))
     log(whoami(), 'full path: {}'.format(os.path.join(path, path_zip)))
+
     for root, dirs, files in os.walk(os.path.join(path, path_zip)):
         for file in files:
             log(whoami(), 'Writing zip {}'.format(os.path.join(root, file),os.path.relpath(os.path.join(root, file), os.path.join(path, '..'))))
@@ -52,6 +55,7 @@ def zipdir(path_zip, ziph):
 def make_zip_to_staff():
     log(whoami(), 'folders_to_zip: {} {}'.format(folders_to_zip, len(folders_to_zip)))
     log(whoami(), 'staff: {} {}'.format(staff, len(staff)))
+
     for i in range(len(staff)):
         zf = zipfile2.ZipFile(path + '/' + staff[i] +'.zip', 'w', zipfile2.ZIP_DEFLATED)
         log(whoami(), 'folders_to_zip: {}'.format(folders_to_zip[i]))
@@ -124,16 +128,33 @@ def create_sheet_header_info(wb):
     ws.cell(row=1, column=4, value='Finished')
     ws.cell(row=1, column=5, value='Points')
     ws.cell(row=1, column=6, value='Grade')
-    ws.cell(row=1, column=7, value='Comments')
-
+    c=7
+    for criteria in assessment_criteria:
+        ws.cell(row=1, column=c, value=criteria[0])
+        c+=1
+    ws.cell(row=1, column=c, value='Comments')
+    c=c+5
+    ws.cell(row=1, column=c+1, value='Teacher')
+    ws.cell(row=1, column=c+2, value='Total')
+    ws.cell(row=1, column=c+3, value='Done')
+    ws.cell(row=1, column=c+4, value='Left')
+    total = count_assesment_folders() + 2
     for x in range(0,len(staff)):
-        ws.cell(row=x+3, column=10, value=staff[x])
-        ws.cell(row=x+3, column=11, value=assesment_for_each_staff[x])
+        ws.cell(row=x+2, column=c+1, value=staff[x])
+        ws.cell(row=x+2, column=c+2, value=assesment_for_each_staff[x])
+        ws.cell(row=x+2, column=c+3, value='=COUNTIFS($B$2:$B${0},{1}{2},$D$2:$D${0},"x")'.format(total,utils.get_column_letter(c+1),x+2))
+        ws.cell(row=x+2, column=c+4, value='={}{}-{}{}'.format(utils.get_column_letter(c+2),x+2, utils.get_column_letter(c+3),x+2))
+
+    ws.cell(row=x+3, column=c+1, value='Total')
+    ws.cell(row=x+3, column=c+2, value='=SUM({}{},{}{})'.format(utils.get_column_letter(c+2),2, utils.get_column_letter(c+2),x+2))
+    ws.cell(row=x+3, column=c+3, value='=SUM({}{},{}{})'.format(utils.get_column_letter(c+3),2, utils.get_column_letter(c+3),x+2))
+    ws.cell(row=x+3, column=c+4, value='=SUM({}{},{}{})'.format(utils.get_column_letter(c+4),2, utils.get_column_letter(c+4),x+2))
+
 
     return ws
 
 def create_feedbackfiles():
-    global folders_to_zip
+    global folders_to_zip, assessment_criteria
     log(whoami(),'Create_feedbackfile')
     file_list = search_dir(path, '.docx', '.doc')
     print_dir()
@@ -142,6 +163,14 @@ def create_feedbackfiles():
     folder_name = os.path.dirname(path)
     log(whoami(),"Path: " + path)
     log(whoami(),"Folder name: " + folder_name)
+    tmp = input('Do you want to change the default assessment criteria? Y/N \n {}'.format(assessment_criteria))
+    if tmp.lower() == 'y':
+        assessment_criteria.clear()
+        temp = ''
+        while temp != 'done' or temp != 'Done':
+            temp = input('Name of the criteria, type in done to end!:')
+            temp_score = int(input('Total score on criteria:'))
+            assessment_criteria.append([temp,temp_score])
     wb = Workbook()
     ws = create_sheet_header_info(wb)
     log(whoami(),'Created Headers to Distribution.xlsx')
@@ -168,6 +197,16 @@ def create_feedbackfiles():
                     log(whoami(),'studentID: {} {}'.format(studentID[0], type(studentID[0])))
                     ws.cell(row=z, column=1, value=studentID[0])
                     ws.cell(row=z, column=2, value=staff_name)
+                    if len(assessment_criteria) == 4:
+                        ws.cell(row=z, column=5, value='={ac[0][1]}*{cell1}% + {ac[1][1]}*{cell2}% + {ac[2][1]}*{cell3}% + {ac[3][1]}*{cell4}%'.format(
+                            ac=assessment_criteria,
+                            cell1=utils.get_column_letter(7)+str(z),
+                            cell2=utils.get_column_letter(8)+str(z),
+                            cell3=utils.get_column_letter(9)+str(z),
+                            cell4=utils.get_column_letter(10)+str(z)
+                        ))
+                        ws.cell(row=z, column=6, value='=IF({0}{1}<40,"F",IF({0}{1}<50,"E",IF({0}{1}<60,"D",IF({0}{1}<80,"C",IF({0}{1}<90,"B","A")))))'.format(utils.get_column_letter(5),z))
+
                     wb.save(path+'/Distribution.xlsx')
                 folders_to_zip[i].append(subdirname)
                 copyfile(feedback_file_path, path + '/' + subdirname + '/' + subdirname + '.docx')
@@ -318,6 +357,7 @@ def change_docx_attributes():
             log(whoami(), 'Author change to {}'.format("Noroff-IT Team"))
         doc.save(docname)
 
+#Preparing for making feedback files.
 def make_feedback_zip():
     file_list = search_dir(path, 'completed')
     print_dir()
@@ -326,8 +366,9 @@ def make_feedback_zip():
     log(whoami(), 'MAKEDIR PATH {}'.format(completed_file_path))
     makedir(completed_file_path)
 
+#Creating folder structure for ZIP and create feedback.zip
 def makedir(completed_file_path):
-    log(whoami(), 'MAKEDIR START')
+    log(whoami(), 'MAKEDIR START - Creating folder structure to feedback.zip')
     files = os.listdir(path=completed_file_path)
     for docxname in files:
         #log(whoami(), 'MAKEDIR FOR: {} {}'.format(completed_file_path, docxname))
@@ -361,8 +402,7 @@ while prog_to_run != 0:
     prog_to_run = int(input('What program/operation do you want to run? Type in the number, 0 to quit:\n'
                         '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
                         '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
-                        '\t3: Make feedback zip.\n'
-                        '\t4: Copy PDF to pfd folder.\n:'))
+                        '\t3: Make feedback zip.\n'))
 
     if prog_to_run == 1:
         select_staff()

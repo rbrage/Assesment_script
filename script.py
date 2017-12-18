@@ -31,6 +31,7 @@ grade_value = []
 feedback_files_docx = []
 feedback_files_pdf = []
 assessment_criteria = [['Introduction',20], ['Main part',40], ['Conclusion',20], ['Reference',20]]
+match = '*_assign*'
 
 def log(whoami,msg):
     log_fil = open(path+"/script_Log.log", "a")
@@ -107,14 +108,15 @@ def select_staff():
     random.shuffle(staff)
     log(whoami(),'#{} - Staff: {}'.format(len(staff), str(staff)))
     global num_assesmentfolder
-    match = input('What should it look for in selection students assessments. Default=*_assign*: ')
+    global match
+    match = input('What should it look for in selection students assessments. Default=:{} '.format(match))
     print(match)
     num_assesmentfolder = count_assesment_folders(match)
     global folders_to_zip
     folders_to_zip = [[] for i in range(len(staff))]
     distribute_number_of_exam()
 
-def count_assesment_folders(match='*_assign*'):
+def count_assesment_folders(match):
     number_of_assesments = 0
     files = os.listdir(path=path)
     for name in files:
@@ -142,7 +144,7 @@ def create_sheet_header_info(wb):
     ws.cell(row=1, column=c+2, value='Total')
     ws.cell(row=1, column=c+3, value='Done')
     ws.cell(row=1, column=c+4, value='Left')
-    total = count_assesment_folders() + 2
+    total = count_assesment_folders(match) + 2
     for x in range(0,len(staff)):
         ws.cell(row=x+2, column=c+1, value=staff[x])
         ws.cell(row=x+2, column=c+2, value=assesment_for_each_staff[x])
@@ -184,7 +186,7 @@ def create_feedbackfiles():
     for dirname, dirnames, filenames in os.walk(path):
         # print path to all subdirectories first.
         for subdirname in dirnames:
-            if fnmatch.fnmatch(subdirname, '*_assign*'):
+            if fnmatch.fnmatch(subdirname, match):
                 log(whoami(),'subdirname: ' + subdirname)
                 studentID = re.findall(r'\d+', subdirname)
                 log(whoami(),'len(studentID):' + str(len(studentID)))

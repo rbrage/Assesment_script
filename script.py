@@ -120,7 +120,6 @@ def count_assesment_folders(match):
     number_of_assesments = 0
     files = os.listdir(path=path)
     for name in files:
-        print('NAMES:', name)
         if fnmatch.fnmatch(name, match):
             print('FNMatch '+ name)
             number_of_assesments += 1
@@ -158,6 +157,86 @@ def create_sheet_header_info(wb):
 
 
     return ws
+
+def create_feedbackfiles_turnitin():
+    global folders_to_zip, assessment_criteria
+    log(whoami(),'Create_feedbackfile')
+    file_list = search_dir(path, '.docx', '.doc')
+    print_dir()
+    log(whoami(), str(file_list))
+    feedback_file_path = file_list[int(input('Type in the number of the feedback file: '))]
+    folder_name = os.path.dirname(path)
+    log(whoami(),"Path: " + path)
+    log(whoami(),"Folder name: " + folder_name)
+    tmp = input('Do you want to change the default assessment criteria? Y/N \n {}'.format(assessment_criteria))
+    if tmp.lower() == 'y':
+        assessment_criteria.clear()
+        temp = ''
+        while temp != 'done' or temp != 'Done':
+            temp = input('Name of the criteria, type in done to end!:')
+            temp_score = int(input('Total score on criteria:'))
+            assessment_criteria.append([temp,temp_score])
+    wb = Workbook()
+    ws = create_sheet_header_info(wb)
+    log(whoami(),'Created Headers to Distribution.xlsx')
+    i = 0
+    x = 0
+    z = 1
+    for dirname, dirnames, filenames in os.walk(path):
+        # print path to all subdirectories first.
+        for name in filenames:
+            print(name, match)
+            if fnmatch.fnmatch(name, match):
+                name = name.split(".pdf")[0]
+                log(whoami(),'subdirname: ' + name)
+                studentID = re.findall(r'\d+', name)
+                log(whoami(),'len(studentID):' + str(len(studentID)))
+                log(whoami(),'assessment_for_each_staff {} '.format(assesment_for_each_staff))
+                log(whoami(),'x: {} -- i: {}'.format(x, i))
+                log(whoami(),'Staff: {}'.format(staff))
+                if x >= assesment_for_each_staff[i]:
+                    if len(staff) > 1:
+                        i += 1
+                    x = 0
+                print(i)
+                print(staff)
+                staff_name = staff[i]
+                x += 1
+                if len(studentID) == 1:
+                    z += 1
+                    log(whoami(),'studentID: {} {}'.format(studentID[0], type(studentID[0])))
+                    ws.cell(row=z, column=1, value=studentID[0])
+                    ws.cell(row=z, column=2, value=staff_name)
+                    if len(assessment_criteria) == 4:
+                        ws.cell(row=z, column=5, value='={ac[0][1]}*{cell1}% + {ac[1][1]}*{cell2}% + {ac[2][1]}*{cell3}% + {ac[3][1]}*{cell4}%'.format(
+                            ac=assessment_criteria,
+                            cell1=utils.get_column_letter(7)+str(z),
+                            cell2=utils.get_column_letter(8)+str(z),
+                            cell3=utils.get_column_letter(9)+str(z),
+                            cell4=utils.get_column_letter(10)+str(z)
+                        ))
+                        ws.cell(row=z, column=6, value='=IF({0}{1}<40,"F",IF({0}{1}<50,"E",IF({0}{1}<60,"D",IF({0}{1}<80,"C",IF({0}{1}<90,"B","A")))))'.format(utils.get_column_letter(5),z))
+
+                    wb.save(path+'/Distribution.xlsx')
+                print('NAME-Folder to zip', name)
+                folders_to_zip[i].append(name)
+                os.makedirs(path + '/' + name)
+                copyfile(path+ '/' +name+'.pdf',path + '/' + name+ '/'+name+'.pdf')
+                copyfile(feedback_file_path, path + '/' + name + '/' + name + '.docx')
+                os.remove(path+ '/' +name+'.pdf')
+                log(whoami(),'Made new file: ' + path + '/' + name + '/' + name + '.docx')
+
+    log(whoami(),'Saved '+path+'/Distribution.xlsx')
+    log(whoami(),'Folders to zip (id_staff): ' + str(folders_to_zip))
+
+    make_zip_to_staff()
+    if not os.path.isfile(os.path.join(path, 'completed')):
+        os.mkdir(os.path.join(path, 'completed'))
+
+    print(
+        '\nProcess done!\nYou will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
+    log(whoami(),
+        'Process done! You will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
 
 def create_feedbackfiles():
     global folders_to_zip, assessment_criteria
@@ -412,7 +491,13 @@ while prog_to_run != 0:
 
     if prog_to_run == 1:
         select_staff()
-        create_feedbackfiles()
+        tmp = input('Do you use TurnItIn? Yes/No')
+        if tmp == "yes":
+            print("using TurnItIn")
+            create_feedbackfiles_turnitin()
+        else:
+            print('Normal run')
+            create_feedbackfiles()
     elif prog_to_run == 2:
         merge_csv_sheet()
     elif prog_to_run == 3:

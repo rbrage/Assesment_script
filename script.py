@@ -107,16 +107,17 @@ def select_staff():
     random.shuffle(staff)
     log(whoami(),'#{} - Staff: {}'.format(len(staff), str(staff)))
     global num_assesmentfolder
+    match = input('What should it look for in selection students assessments. Default=_assign*')
     num_assesmentfolder = count_assesment_folders()
     global folders_to_zip
     folders_to_zip = [[] for i in range(len(staff))]
     distribute_number_of_exam()
 
-def count_assesment_folders():
+def count_assesment_folders(match='*_assign*'):
     number_of_assesments = 0
     files = os.listdir(path=path)
     for name in files:
-        if fnmatch.fnmatch(name, '*_assign*'):
+        if fnmatch.fnmatch(name, match):
             number_of_assesments += 1
     return number_of_assesments
 

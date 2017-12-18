@@ -151,9 +151,9 @@ def create_sheet_header_info(wb):
         ws.cell(row=x+2, column=c+4, value='={}{}-{}{}'.format(utils.get_column_letter(c+2),x+2, utils.get_column_letter(c+3),x+2))
 
     ws.cell(row=x+3, column=c+1, value='Total')
-    ws.cell(row=x+3, column=c+2, value='=SUM({}{},{}{})'.format(utils.get_column_letter(c+2),2, utils.get_column_letter(c+2),x+2))
-    ws.cell(row=x+3, column=c+3, value='=SUM({}{},{}{})'.format(utils.get_column_letter(c+3),2, utils.get_column_letter(c+3),x+2))
-    ws.cell(row=x+3, column=c+4, value='=SUM({}{},{}{})'.format(utils.get_column_letter(c+4),2, utils.get_column_letter(c+4),x+2))
+    ws.cell(row=x+3, column=c+2, value='=SUM({}{}:{}{})'.format(utils.get_column_letter(c+2),2, utils.get_column_letter(c+2),x+2))
+    ws.cell(row=x+3, column=c+3, value='=SUM({}{}:{}{})'.format(utils.get_column_letter(c+3),2, utils.get_column_letter(c+3),x+2))
+    ws.cell(row=x+3, column=c+4, value='=SUM({}{}:{}{})'.format(utils.get_column_letter(c+4),2, utils.get_column_letter(c+4),x+2))
 
 
     return ws
@@ -195,8 +195,7 @@ def create_feedbackfiles_turnitin():
                 log(whoami(),'x: {} -- i: {}'.format(x, i))
                 log(whoami(),'Staff: {}'.format(staff))
                 if x >= assesment_for_each_staff[i]:
-                    if len(staff) > 1:
-                        i += 1
+                    i += 1
                     x = 0
                 print(i)
                 print(staff)
@@ -492,7 +491,7 @@ while prog_to_run != 0:
     if prog_to_run == 1:
         select_staff()
         tmp = input('Do you use TurnItIn? Yes/No')
-        if tmp == "yes":
+        if tmp.lower() == "yes":
             print("using TurnItIn")
             create_feedbackfiles_turnitin()
         else:

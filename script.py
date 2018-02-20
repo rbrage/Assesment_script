@@ -1,7 +1,5 @@
 #!/usr/local/bin python3
 
-from shutil import copyfile, move
-
 from shutil import copyfile, move, copy2, copyfileobj
 from openpyxl import load_workbook, Workbook, utils
 
@@ -42,7 +40,6 @@ def log(whoami,msg):
 
 def whoami():
     return inspect.stack()[1][3]
-
 
 def zipdir(path_zip, ziph):
     log(whoami(), 'path: {}'.format(path_zip))
@@ -318,12 +315,10 @@ def merge_csv_sheet():
     log(whoami(),
         'Process done! You will find a NEW csv file ready to upload to moodle')
 
-
 def copyLargeFile(src, dest, buffer_size=16000):
     with open(src, 'rb') as fsrc:
         with open(dest, 'wb') as fdest:
             copyfileobj(fsrc, fdest, buffer_size)
-
 
 def move_student_exam():
     log(whoami(),'Move student exam start!')
@@ -340,7 +335,6 @@ def move_student_exam():
                             newfilename = "{}{}".format(subdirname, subdirfile)
                             log(whoami(), "{}{}".format(os.path.join(dirname, subdirname, subdirfile) ,os.path.join(path, 'pdf', newfilename)))
                             copyLargeFile(os.path.join(dirname, subdirname), os.path.join(path, 'pdf', newfilename))
-
 
 def delete_student_exam():
     for dirname, dirnames, filenames in os.walk(path):
@@ -377,7 +371,7 @@ def read_xlsx_file():
     print_dir()
     dist_xlsx_path = file_list[int(input('Type in the number of the Distribution sheet:'))]
     log(whoami(),'dist_xlsx_path -> '+ dist_xlsx_path)
-    wb = load_workbook(filename=dist_xlsx_path, read_only=False)
+    wb = load_workbook(filename=dist_xlsx_path, read_only=True, data_only=True)
     ws = wb['Distribution']
     for row in ws.rows:
         if row[0].value == 'ID':
@@ -387,8 +381,6 @@ def read_xlsx_file():
         distribution_grade[row[0].value].append([row[4].value, row[5].value])
         global grade_value
         grade_value.append(row[4].value)
-    #print(distribution_grade)
-    #calculate_stats()
 
 def read_csv_file():
     log(whoami(),'read_csv_file')

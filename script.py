@@ -118,9 +118,11 @@ def count_assesment_folders(match):
     files = os.listdir(path=path)
     for name in files:
         if fnmatch.fnmatch(name, match):
-            print('FNMatch '+ name)
+            log(whoami(),'FNMatch '+ name)
             number_of_assesments += 1
+    log(whoami(), 'Number of assesments: ' + str(number_of_assesments))
     return number_of_assesments
+
 
 def create_sheet_header_info(wb):
     ws = wb.create_sheet("Distribution", 0)
@@ -169,8 +171,11 @@ def create_feedbackfiles_turnitin():
     if tmp.lower() == 'y':
         assessment_criteria.clear()
         temp = ''
-        while temp != 'done' or temp != 'Done':
+        while True:
             temp = input('Name of the criteria, type in done to end!:')
+            if temp == 'done' or temp == 'Done':
+                break
+
             temp_score = int(input('Total score on criteria:'))
             assessment_criteria.append([temp,temp_score])
     wb = Workbook()
@@ -203,6 +208,7 @@ def create_feedbackfiles_turnitin():
                     log(whoami(),'studentID: {} {}'.format(studentID[0], type(studentID[0])))
                     ws.cell(row=z, column=1, value=studentID[0])
                     ws.cell(row=z, column=2, value=staff_name)
+
                     if len(assessment_criteria) == 4:
                         ws.cell(row=z, column=5, value='={ac[0][1]}*{cell1}% + {ac[1][1]}*{cell2}% + {ac[2][1]}*{cell3}% + {ac[3][1]}*{cell4}%'.format(
                             ac=assessment_criteria,
@@ -212,6 +218,20 @@ def create_feedbackfiles_turnitin():
                             cell4=utils.get_column_letter(10)+str(z)
                         ))
                         ws.cell(row=z, column=6, value='=IF({0}{1}<40,"F",IF({0}{1}<50,"E",IF({0}{1}<60,"D",IF({0}{1}<80,"C",IF({0}{1}<90,"B","A")))))'.format(utils.get_column_letter(5),z))
+
+                    elif len(assessment_criteria) == 5:
+                        ws.cell(row=z, column=5, value='={ac[0][1]}*{cell1}% + {ac[1][1]}*{cell2}% + {ac[2][1]}*{cell3}% + {ac[3][1]}*{cell4}% + {ac[4][1]}*{cell5}%'.format(
+                            ac=assessment_criteria,
+                            cell1=utils.get_column_letter(7)+str(z),
+                            cell2=utils.get_column_letter(8)+str(z),
+                            cell3=utils.get_column_letter(9)+str(z),
+                            cell4=utils.get_column_letter(10)+str(z),
+                            cell5 = utils.get_column_letter(11) + str(z)
+                        ))
+                        ws.cell(row=z, column=6, value='=IF({0}{1}<40,"F",IF({0}{1}<50,"E",IF({0}{1}<60,"D",IF({0}{1}<80,"C",IF({0}{1}<90,"B","A")))))'.format(utils.get_column_letter(5),z))
+
+                    else:
+                        print('The number of assessment criteria is not correct!')
 
                     wb.save(path+'/Distribution.xlsx')
                 print('NAME-Folder to zip', name)
@@ -248,10 +268,13 @@ def create_feedbackfiles():
     if tmp.lower() == 'y':
         assessment_criteria.clear()
         temp = ''
-        while temp != 'done' or temp != 'Done':
+        while True:
             temp = input('Name of the criteria, type in done to end!:')
+            if temp == 'done' or temp == 'Done':
+                break
             temp_score = int(input('Total score on criteria:'))
             assessment_criteria.append([temp,temp_score])
+
     wb = Workbook()
     ws = create_sheet_header_info(wb)
     log(whoami(),'Created Headers to Distribution.xlsx')

@@ -491,6 +491,39 @@ def makedir(completed_file_path):
         finally:
             log(whoami(), 'ZIP: {}'.format(zf.infolist()))
 
+def hasNumbers(inputString):
+    return bool(re.search(r'\d', inputString))
+
+def check_missing_feedback():
+    log(whoami(), 'Start missing feedback files')
+    for dirname, dirnames, filenames in os.walk(path):
+       for dir in dirnames:
+           if dir == 'completed':
+            feedback_path = os.path.join(path, dir)
+    id_list = set()
+    for dirname, dirnames, filenames in os.walk(feedback_path):
+       for file in filenames:
+           if hasNumbers(file):
+            id_list.add(re.findall('\d+', file )[0])
+
+    dist_id_name = dict()
+    file_list = search_dir(path, '.xlsx')
+    print_dir()
+    dist_xlsx_path = file_list[int(input('Type in the number of the Distribution sheet:'))]
+    log(whoami(), 'dist_xlsx_path -> ' + dist_xlsx_path)
+    wb = load_workbook(filename=dist_xlsx_path, read_only=True, data_only=True)
+    ws = wb['Distribution']
+    for row in ws.rows:
+        if row[0].value == 'ID':
+            continue
+        dist_id_name[row[0].value] = row[1].value
+    keys_diff = set(dist_id_name.keys()) - id_list
+    missing_feedback_log = open(path + "/missing_feedback.txt", "w")
+    for key in keys_diff:
+        missing_feedback_log.write(str(key) + ' -- '+ str(dist_id_name[key])+'\n')
+    missing_feedback_log.close()
+
+
 
 log_fil = open(path+"/script_Log.log", "w")
 log_fil.write('LOG FOR ASSESSMENT SCRIPT\n')
@@ -501,7 +534,8 @@ while prog_to_run != 0:
     prog_to_run = int(input('What program/operation do you want to run? Type in the number, 0 to quit:\n'
                         '\t1: Create feedback file in each folder, and collect the student ID in a list.\n'
                         '\t2: Merge grades into feedback file with merge dist.list and Moodle grade sheet.\n'
-                        '\t3: Make feedback zip.\n'))
+                        '\t3: Make feedback zip.\n'
+                        '\t4: Check missing feedback files.\n'))
 
     if prog_to_run == 1:
         select_staff()
@@ -517,7 +551,7 @@ while prog_to_run != 0:
     elif prog_to_run == 3:
         make_feedback_zip()
     elif prog_to_run == 4:
-        move_student_exam()
+        check_missing_feedback()
     elif prog_to_run == 0:
         sys.exit(0)
     else:

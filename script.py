@@ -2,6 +2,7 @@
 
 from shutil import copyfile, move, copy2, copyfileobj
 from openpyxl import load_workbook, Workbook, utils
+from tqdm import tqdm
 
 import zipfile2, csv, re, fnmatch, os, sys, time, datetime, random, statistics, inspect
 from docx import Document
@@ -50,14 +51,17 @@ def zipdir(path_zip, ziph):
             log(whoami(), 'Writing zip {}'.format(os.path.join(root, file),os.path.relpath(os.path.join(root, file), os.path.join(path, '..'))))
             ziph.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), os.path.join(path, '..')))
 
-def make_zip_to_staff():
+def make_zip_to_staff(path):
     log(whoami(), 'folders_to_zip: {} {}'.format(folders_to_zip, len(folders_to_zip)))
     log(whoami(), 'staff: {} {}'.format(staff, len(staff)))
+    pbar = tqdm(total=len(folders_to_zip))
 
     for i in range(len(staff)):
         zf = zipfile2.ZipFile(path + '/' + staff[i] +'.zip', 'w', zipfile2.ZIP_DEFLATED)
         log(whoami(), 'folders_to_zip: {}'.format(folders_to_zip[i]))
         for j in range(len(folders_to_zip[i])):
+            pbar.update(1)
+            time.sleep(1)
             try:
                 zipdir(folders_to_zip[i][j] + '/', zf)
             finally:
@@ -65,6 +69,7 @@ def make_zip_to_staff():
         log(whoami(),'Created: '+staff[i] + '.zip')
         log(whoami(),'\t\tinfo: {}'.format(zf.infolist()))
         zf.close()
+        pbar.close()
 
 def search_dir(path,*args, **kwargs):
     end_sufix = args
@@ -106,7 +111,9 @@ def select_staff():
     log(whoami(),'#{} - Staff: {}'.format(len(staff), str(staff)))
     global num_assesmentfolder
     global match
-    match = input('What should it look for in selection students assessments. Default=:{} '.format(match))
+    tmp_match = input('What should it look for in selection students assessments. Default=:{} '.format(match))
+    if len(tmp_match) > 1:
+        match = tmp_match
     print(match)
     num_assesmentfolder = count_assesment_folders(match)
     global folders_to_zip
@@ -123,6 +130,20 @@ def count_assesment_folders(match):
     log(whoami(), 'Number of assesments: ' + str(number_of_assesments))
     return number_of_assesments
 
+def make_dir_to_upload():
+    date = input('Type in the due date, YYYY-MM-DD >')
+    course = input('Type in the course abbreviation >')
+    startup = input('Type in the course startup ex:AUG-FT-2018 >')
+
+    dirname = date+' - '+course+' - '+startup
+
+    if not os.path.isdir(os.path.join(path, dirname)):
+        os.mkdir(os.path.join(path, dirname))
+
+    if not os.path.isdir(os.path.join(path, dirname, 'completed')):
+        os.mkdir(os.path.join(path, dirname, 'completed'))
+
+    return os.path.join(path, dirname)
 
 def create_sheet_header_info(wb):
     ws = wb.create_sheet("Distribution", 0)
@@ -178,6 +199,7 @@ def create_feedbackfiles_turnitin():
 
             temp_score = int(input('Total score on criteria:'))
             assessment_criteria.append([temp,temp_score])
+    path_upload = make_dir_to_upload()
     wb = Workbook()
     ws = create_sheet_header_info(wb)
     log(whoami(),'Created Headers to Distribution.xlsx')
@@ -187,7 +209,6 @@ def create_feedbackfiles_turnitin():
     for dirname, dirnames, filenames in os.walk(path):
         # print path to all subdirectories first.
         for name in filenames:
-            print(name, match)
             if fnmatch.fnmatch(name, match):
                 name = name.split(".pdf")[0]
                 log(whoami(),'subdirname: ' + name)
@@ -233,7 +254,7 @@ def create_feedbackfiles_turnitin():
                     else:
                         print('The number of assessment criteria is not correct!')
 
-                    wb.save(path+'/Distribution.xlsx')
+                    wb.save(path_upload+'/Distribution.xlsx')
                 print('NAME-Folder to zip', name)
                 folders_to_zip[i].append(name)
                 os.makedirs(path + '/' + name)
@@ -245,7 +266,7 @@ def create_feedbackfiles_turnitin():
     log(whoami(),'Saved '+path+'/Distribution.xlsx')
     log(whoami(),'Folders to zip (id_staff): ' + str(folders_to_zip))
 
-    make_zip_to_staff()
+    make_zip_to_staff(path_upload)
     if not os.path.isfile(os.path.join(path, 'completed')):
         os.mkdir(os.path.join(path, 'completed'))
 
@@ -274,15 +295,15 @@ def create_feedbackfiles():
                 break
             temp_score = int(input('Total score on criteria:'))
             assessment_criteria.append([temp,temp_score])
-
+    path_upload = make_dir_to_upload()
     wb = Workbook()
     ws = create_sheet_header_info(wb)
     log(whoami(),'Created Headers to Distribution.xlsx')
+
     i = 0
     x = 0
     z = 1
     for dirname, dirnames, filenames in os.walk(path):
-        # print path to all subdirectories first.
         for subdirname in dirnames:
             if fnmatch.fnmatch(subdirname, match):
                 log(whoami(),'subdirname: ' + subdirname)
@@ -311,17 +332,16 @@ def create_feedbackfiles():
                         ))
                         ws.cell(row=z, column=6, value='=IF({0}{1}<40,"F",IF({0}{1}<50,"E",IF({0}{1}<60,"D",IF({0}{1}<80,"C",IF({0}{1}<90,"B","A")))))'.format(utils.get_column_letter(5),z))
 
-                    wb.save(path+'/Distribution.xlsx')
+                    wb.save(path_upload+'/Distribution.xlsx')
                 folders_to_zip[i].append(subdirname)
                 copyfile(feedback_file_path, path + '/' + subdirname + '/' + subdirname + '.docx')
                 log(whoami(),'Made new file: ' + path + '/' + subdirname + '/' + subdirname + '.docx')
 
-    log(whoami(),'Saved '+path+'/Distribution.xlsx')
+    log(whoami(),'Saved '+path_upload+'/Distribution.xlsx')
     log(whoami(),'Folders to zip (id_staff): ' + str(folders_to_zip))
 
-    make_zip_to_staff()
-    if not os.path.isfile(os.path.join(path, 'completed')):
-        os.mkdir(os.path.join(path, 'completed'))
+    make_zip_to_staff(path_upload)
+
 
     print(
         '\nProcess done!\nYou will find a document in each folder and a Distribution.xlsx with all student identifikation numbers')
